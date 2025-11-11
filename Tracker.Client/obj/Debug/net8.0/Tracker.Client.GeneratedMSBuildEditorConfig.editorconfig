@@ -13,95 +13,95 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property._SupportedPlatformList = browser
 build_property.RootNamespace = Tracker.Client
 build_property.RootNamespace = Tracker.Client
-build_property.ProjectDir = C:\Users\donal\source\repos\tracker\Tracker.Client\
+build_property.ProjectDir = c:\Users\donal\source\repos\tracker\Tracker.Client\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = false
 build_property.RazorLangVersion = 8.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = C:\Users\donal\source\repos\tracker\Tracker.Client
+build_property.MSBuildProjectDirectory = c:\Users\donal\source\repos\tracker\Tracker.Client
 build_property._RazorSourceGeneratorDebug = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/App.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/App.razor]
 build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Components/Toast.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xUb2FzdC5yYXpvcg==
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Components/ToastNotification.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xUb2FzdE5vdGlmaWNhdGlvbi5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Counter.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Counter.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ291bnRlci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Dashboard.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Dashboard.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRGFzaGJvYXJkLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/ForgotPassword.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/ForgotPassword.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRm9yZ290UGFzc3dvcmQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Home.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Home.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSG9tZS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Create.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Create.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5jaWRlbnRzXENyZWF0ZS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Details.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Details.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5jaWRlbnRzXERldGFpbHMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Edit.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Edit.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5jaWRlbnRzXEVkaXQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Index.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Index.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5jaWRlbnRzXEluZGV4LnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Timeline.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Incidents/Timeline.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5jaWRlbnRzXFRpbWVsaW5lLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Login.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Login.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTG9naW4ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/LogViewer.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/LogViewer.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTG9nVmlld2VyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Register.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Register.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUmVnaXN0ZXIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/ResetPassword.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/ResetPassword.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUmVzZXRQYXNzd29yZC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Weather.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Pages/Weather.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcV2VhdGhlci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Shared/MainLayout.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Shared/MainLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE1haW5MYXlvdXQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Shared/NavMenu.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Shared/NavMenu.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXE5hdk1lbnUucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/_Imports.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/_Imports.razor]
 build_metadata.AdditionalFiles.TargetPath = X0ltcG9ydHMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Layout/MainLayout.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Layout/MainLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = TGF5b3V0XE1haW5MYXlvdXQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-478k4l86or
 
-[C:/Users/donal/source/repos/tracker/Tracker.Client/Layout/NavMenu.razor]
+[c:/Users/donal/source/repos/tracker/Tracker.Client/Layout/NavMenu.razor]
 build_metadata.AdditionalFiles.TargetPath = TGF5b3V0XE5hdk1lbnUucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-62mowfy9eo
