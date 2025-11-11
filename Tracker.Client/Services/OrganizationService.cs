@@ -28,16 +28,17 @@ namespace Tracker.Client.Services
                 {
                     url += $"&search={Uri.EscapeDataString(searchTerm)}";
                 }
-                return await _httpClient.GetFromJsonAsync<PagedResult<OrganizationDto>>(url);
+                var result = await _httpClient.GetFromJsonAsync<PagedResult<OrganizationDto>>(url);
+                return result ?? new PagedResult<OrganizationDto> { Items = new List<OrganizationDto>(), TotalCount = 0 };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching organizations");
-                throw;
+                return new PagedResult<OrganizationDto> { Items = new List<OrganizationDto>(), TotalCount = 0 };
             }
         }
 
-        public async Task<OrganizationDto> GetOrganizationByIdAsync(Guid id)
+        public async Task<OrganizationDto?> GetOrganizationByIdAsync(Guid id)
         {
             try
             {
@@ -45,12 +46,12 @@ namespace Tracker.Client.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error fetching organization with ID {id}");
-                throw;
+                _logger.LogError(ex, "Error fetching organization with ID {OrganizationId}", id);
+                return null;
             }
         }
 
-        public async Task<OrganizationDto> CreateOrganizationAsync(OrganizationDto organization)
+        public async Task<OrganizationDto?> CreateOrganizationAsync(OrganizationDto organization)
         {
             try
             {
@@ -61,7 +62,7 @@ namespace Tracker.Client.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating organization");
-                throw;
+                return null;
             }
         }
 

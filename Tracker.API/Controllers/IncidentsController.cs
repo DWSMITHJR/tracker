@@ -15,7 +15,7 @@ namespace Tracker.API.Controllers
 
         // GET: api/organizations/{organizationId}/incidents
         [HttpGet("organizations/{organizationId}")]
-        public async Task<IActionResult> GetIncidentsByOrganization(Guid organizationId, [FromQuery] string status = null)
+        public async Task<IActionResult> GetIncidentsByOrganization(Guid organizationId, [FromQuery] string? status = null)
         {
             try
             {
@@ -98,6 +98,16 @@ namespace Tracker.API.Controllers
                 if (!await IsAuthorized(incident.OrganizationId))
                 {
                     return Forbid();
+                }
+
+                // Set the reported by ID to the current user's ID
+                if (Guid.TryParse(CurrentUserId, out var currentUserId))
+                {
+                    incident.ReportedById = currentUserId;
+                }
+                else
+                {
+                    return Unauthorized("Invalid user ID in token");
                 }
 
                 // Set created timestamp
@@ -337,7 +347,7 @@ namespace Tracker.API.Controllers
 
     public class TimelineEntryRequest
     {
-        public string Event { get; set; }
-        public string Description { get; set; }
+        public required string Event { get; set; }
+        public required string Description { get; set; }
     }
 }

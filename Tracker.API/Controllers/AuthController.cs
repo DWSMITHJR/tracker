@@ -18,6 +18,12 @@ namespace Tracker.API.Controllers
             _logger = logger;
         }
 
+    // Local DTO for revoke since it's not present in shared models
+    public class RevokeTokenRequest
+    {
+        public required string Token { get; set; }
+    }
+
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
@@ -34,7 +40,7 @@ namespace Tracker.API.Controllers
                     request.Password,
                     request.FirstName,
                     request.LastName,
-                    request.Role);
+                    "Client");
 
                 if (!result.Success)
                 {
@@ -61,7 +67,10 @@ namespace Tracker.API.Controllers
 
         [HttpPost("login")]
         [AllowAnonymous]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login(
+            [FromBody] LoginRequest request, 
+            [FromQuery] bool debug = false,
+            CancellationToken cancellationToken = default)
         {
             try
             {
@@ -70,13 +79,25 @@ namespace Tracker.API.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var result = await _authService.LoginAsync(request.Email, request.Password);
+                // Log debug information if requested
+                if (debug && _authService is AuthService authService)
+                {
+                    _logger.LogInformation("=== AUTH SERVICE DEBUG INFO ===");
+                    _logger.LogInformation($"JWT Secret configured: {!string.IsNullOrEmpty(authService.GetJwtSecretForDebug())}");
+                    _logger.LogInformation($"JWT Issuer: {authService.GetJwtIssuerForDebug()}");
+                    _logger.LogInformation($"JWT Audience: {authService.GetJwtAudienceForDebug()}");
+                }
+
+                var result = await _authService.LoginAsync(request.Email, request.Password, cancellationToken);
 
                 if (!result.Success)
                 {
-                    return BadRequest(new { Errors = result.Errors });
+                    _logger.LogWarning("Login failed for user {Email}. Errors: {Errors}", 
+                        request.Email, string.Join(", ", result.Errors ?? new[] { "Unknown error" }));
+                    return Unauthorized(new { Errors = result.Errors });
                 }
 
+                _logger.LogInformation("User {Email} logged in successfully", request.Email);
                 return Ok(new
                 {
                     result.Token,
@@ -90,8 +111,33 @@ namespace Tracker.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during user login");
-                return StatusCode(500, new { Errors = new[] { "An error occurred while processing your request." } });
+                // Log the full exception details including inner exceptions
+                _logger.LogError(ex, "Error during user login for email: {Email}. Error: {Message}\nStack Trace: {StackTrace}", 
+                    request.Email, 
+                    ex.Message, 
+                    ex.StackTrace);
+
+                // Include more detailed error information in development environment
+                var errorMessage = "An error occurred while processing your request.";
+                #if DEBUG
+                errorMessage = $"An error occurred: {ex.Message}\nStack Trace: {ex.StackTrace}";
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $"\n\nInner Exception: {ex.InnerException.Message}\n{ex.InnerException.StackTrace}";
+                }
+                #endif
+
+                return StatusCode(500, new { 
+                    Errors = new[] { errorMessage },
+                    ExceptionType = ex.GetType().FullName,
+                    ExceptionMessage = ex.Message,
+                    StackTrace = ex.StackTrace,
+                    InnerException = ex.InnerException != null ? new {
+                        Type = ex.InnerException.GetType().FullName,
+                        Message = ex.InnerException.Message,
+                        StackTrace = ex.InnerException.StackTrace
+                    } : null
+                });
             }
         }
 
@@ -202,7 +248,12 @@ namespace Tracker.API.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var result = await _authService.ResetPasswordAsync(request.Email, request.Token, request.NewPassword);
+                if (string.IsNullOrWhiteSpace(request.Email))
+                {
+                    return BadRequest(new { Errors = new[] { "Email is required for password reset." } });
+                }
+
+                var result = await _authService.ResetPasswordAsync(request.Email, request.Token, request.Password);
                 
                 if (!result)
                 {
@@ -217,44 +268,5 @@ namespace Tracker.API.Controllers
                 return StatusCode(500, new { Errors = new[] { "An error occurred while resetting your password." } });
             }
         }
-    }
-
-    // Request models
-    public class RegisterRequest
-    {
-        public string Email { get; set; }
-        public string Password { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string Role { get; set; } = "Client";
-    }
-
-    public class LoginRequest
-    {
-        public string Email { get; set; }
-        public string Password { get; set; }
-    }
-
-    public class RefreshTokenRequest
-    {
-        public string Token { get; set; }
-        public string RefreshToken { get; set; }
-    }
-
-    public class RevokeTokenRequest
-    {
-        public string Token { get; set; }
-    }
-
-    public class ForgotPasswordRequest
-    {
-        public string Email { get; set; }
-    }
-
-    public class ResetPasswordRequest
-    {
-        public string Email { get; set; }
-        public string Token { get; set; }
-        public string NewPassword { get; set; }
     }
 }

@@ -15,18 +15,18 @@ public class LogEntry
     
     [Required]
     [MaxLength(50)]
-    public string Level { get; set; }
+    public string Level { get; set; } = string.Empty;
     
     [Required]
-    public string Message { get; set; }
+    public string Message { get; set; } = string.Empty;
     
     [MaxLength(255)]
-    public string Source { get; set; }
+    public string? Source { get; set; }
     
     [MaxLength(450)]
-    public string UserId { get; set; }
+    public string? UserId { get; set; }
     
-    public string Exception { get; set; }
+    public string? Exception { get; set; }
     
-    public string Properties { get; set; }
+    public string Properties { get; set; } = string.Empty;
 }

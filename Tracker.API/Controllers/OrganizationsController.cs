@@ -148,27 +148,99 @@ namespace Tracker.API.Controllers
         // DELETE: api/organizations/5
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteOrganization(Guid id)
+        public async Task<IActionResult> DeleteOrganization(Guid id, [FromQuery] bool hardDelete = false)
         {
             try
             {
-                var organization = await _context.Organizations.FindAsync(id);
+                var organization = await _context.Organizations
+                    .Include(o => o.Users)
+                    .Include(o => o.Individuals)
+                    .Include(o => o.Contacts)
+                    .Include(o => o.Incidents)
+                    .Include(o => o.EnrollmentCodes)
+                    .FirstOrDefaultAsync(o => o.Id == id);
+
                 if (organization == null)
                 {
                     return NotFound();
                 }
 
-                // Soft delete
-                organization.IsActive = false;
-                organization.UpdatedAt = DateTime.UtcNow;
+                if (hardDelete)
+                {
+                    // Use hard delete with transaction
+                    using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
+                    {
+                        // First, handle related entities that would cause foreign key violations
+                        // 1. Remove users from the organization (doesn't delete users, just removes the relationship)
+                        foreach (var user in organization.Users.ToList())
+                        {
+                            user.OrganizationId = null;
+                        }
 
-                _context.Entry(organization).State = EntityState.Modified;
-                await _context.SaveChangesAsync();
+                        // 2. Delete related entities in the correct order to respect foreign key constraints
+                        _context.IncidentAttachments.RemoveRange(
+                            _context.IncidentAttachments
+                                .Where(ia => _context.Incidents
+                                    .Where(i => i.OrganizationId == organization.Id)
+                                    .Select(i => i.Id)
+                                    .Contains(ia.IncidentId))
+                        );
 
-                return NoContent();
+                        _context.IncidentTimelines.RemoveRange(
+                            _context.IncidentTimelines
+                                .Where(it => _context.Incidents
+                                    .Where(i => i.OrganizationId == organization.Id)
+                                    .Select(i => i.Id)
+                                    .Contains(it.IncidentId))
+                        );
+
+                        _context.IncidentIndividuals.RemoveRange(
+                            _context.IncidentIndividuals
+                                .Where(ii => _context.Incidents
+                                    .Where(i => i.OrganizationId == organization.Id)
+                                    .Select(i => i.Id)
+                                    .Contains(ii.IncidentId))
+                        );
+
+                        // 3. Delete the main entities
+                        _context.Incidents.RemoveRange(organization.Incidents);
+                        _context.Individuals.RemoveRange(organization.Individuals);
+                        _context.Contacts.RemoveRange(organization.Contacts);
+                        _context.EnrollmentCodes.RemoveRange(organization.EnrollmentCodes);
+                        
+                        // 4. Finally, delete the organization
+                        _context.Organizations.Remove(organization);
+                        
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        
+                        _logger.LogInformation("Organization {OrganizationId} and all related data have been hard deleted.", id);
+                        return NoContent();
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        _logger.LogError(ex, "Error occurred during hard delete of organization {OrganizationId}", id);
+                        return HandleError($"An error occurred while hard deleting organization with ID {id}.", ex);
+                    }
+                }
+                else
+                {
+                    // Soft delete
+                    organization.IsActive = false;
+                    organization.UpdatedAt = DateTime.UtcNow;
+
+                    _context.Entry(organization).State = EntityState.Modified;
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Organization {OrganizationId} has been soft deleted.", id);
+                    return NoContent();
+                }
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error deleting organization {OrganizationId}", id);
                 return HandleError($"An error occurred while deleting organization with ID {id}.", ex);
             }
         }

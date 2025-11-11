@@ -2,6 +2,7 @@
 @using Tracker.Client.Services
 @using Tracker.Shared.Auth
 @using Blazored.LocalStorage
+@using Microsoft.AspNetCore.WebUtilities
 @inject IAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject ILocalStorageService LocalStorage
@@ -87,7 +88,12 @@
 </div>
 
 @code {
-    private LoginRequest model = new();
+    private LoginRequest model = new()
+    {
+        Email = string.Empty,
+        Password = string.Empty,
+        RememberMe = false
+    };
     private string errorMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
@@ -104,23 +110,50 @@
     {
         try
         {
+            if (AuthService == null)
+            {
+                errorMessage = "Authentication service is not available.";
+                return;
+            }
+
             errorMessage = string.Empty;
             var result = await AuthService.Login(model);
             
-            if (result.Success)
+            if (result?.Success == true)
             {
                 // Redirect to the return URL or home page
-                var returnUrl = NavigationManager.QueryString("returnUrl") ?? "/";
-                NavigationManager.NavigateTo(returnUrl);
+                var returnUrl = "/";
+                if (NavigationManager != null)
+                {
+                    try
+                    {
+                        var uri = new Uri(NavigationManager.Uri);
+                        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query)
+                            .TryGetValue("returnUrl", out var param) && 
+                            param.Count > 0 && 
+                            !string.IsNullOrWhiteSpace(param[0]))
+                        {
+                            returnUrl = param[0];
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger?.LogWarning(ex, "Error parsing return URL");
+                        // Continue with default return URL
+                    }
+                }
+                // Ensure we have a non-null return URL
+                var safeReturnUrl = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "/";
+                NavigationManager?.NavigateTo(safeReturnUrl);
             }
             else
             {
-                errorMessage = result.Error ?? "Invalid login attempt.";
+                errorMessage = result?.Error ?? "Invalid login attempt.";
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error during login");
+            Logger?.LogError(ex, "Error during login");
             errorMessage = "An error occurred while trying to log in. Please try again.";
         }
     }

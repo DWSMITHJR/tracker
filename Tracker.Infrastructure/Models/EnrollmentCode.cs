@@ -7,12 +7,12 @@ namespace Tracker.Infrastructure.Models
     {
         [Required]
         [MaxLength(50)]
-        public string Code { get; set; }
+        public string Code { get; set; } = string.Empty;
 
         // Organization relationship
         [Required]
         public Guid OrganizationId { get; set; }
-        public virtual Organization Organization { get; set; }
+        public virtual Organization Organization { get; set; } = null!;
 
         [Required]
         public DateTime BeginDate { get; set; } = DateTime.UtcNow;
@@ -20,12 +20,12 @@ namespace Tracker.Infrastructure.Models
         [Required]
         public DateTime EndDate { get; set; }
 
-        public bool IsActive { get; set; } = true;
+        public new bool IsActive { get; set; } = true;
         public bool Used { get; set; }
         public DateTime? UsedAt { get; set; }
 
         // Used by relationship
         public Guid? UsedById { get; set; }
-        public virtual User UsedBy { get; set; }
+        public virtual User? UsedBy { get; set; }
     }
 }

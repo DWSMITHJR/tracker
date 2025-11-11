@@ -28,25 +28,34 @@ namespace Tracker.Client.Services
                 {
                     url += $"&search={Uri.EscapeDataString(searchTerm)}";
                 }
-                return await _httpClient.GetFromJsonAsync<PagedResult<ContactDto>>(url);
+                
+                var result = await _httpClient.GetFromJsonAsync<PagedResult<ContactDto>>(url);
+                return result ?? new PagedResult<ContactDto> { Items = new List<ContactDto>(), TotalCount = 0 };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching contacts");
-                throw;
+                return new PagedResult<ContactDto> { Items = new List<ContactDto>(), TotalCount = 0 };
             }
         }
         
         public async Task<IEnumerable<ContactDto>> GetContactsByIncidentIdAsync(string incidentId)
         {
+            if (string.IsNullOrWhiteSpace(incidentId))
+            {
+                _logger.LogWarning("GetContactsByIncidentIdAsync called with null or empty incidentId");
+                return new List<ContactDto>();
+            }
+
             try
             {
-                return await _httpClient.GetFromJsonAsync<IEnumerable<ContactDto>>($"api/incidents/{incidentId}/contacts");
+                var result = await _httpClient.GetFromJsonAsync<IEnumerable<ContactDto>>($"api/incidents/{incidentId}/contacts");
+                return result ?? new List<ContactDto>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error fetching contacts for incident {incidentId}");
-                throw;
+                _logger.LogError(ex, "Error fetching contacts for incident {IncidentId}", incidentId);
+                return new List<ContactDto>();
             }
         }
 
@@ -54,11 +63,22 @@ namespace Tracker.Client.Services
         {
             try
             {
-                return await _httpClient.GetFromJsonAsync<ContactDto>($"api/contacts/{id}");
+                var contact = await _httpClient.GetFromJsonAsync<ContactDto>($"api/contacts/{id}");
+                if (contact == null)
+                {
+                    _logger.LogWarning("Contact with ID {ContactId} not found", id);
+                    throw new KeyNotFoundException($"Contact with ID {id} not found");
+                }
+                return contact;
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Contact with ID {ContactId} not found", id);
+                throw new KeyNotFoundException($"Contact with ID {id} not found", ex);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error fetching contact with ID {id}");
+                _logger.LogError(ex, "Error fetching contact with ID {ContactId}", id);
                 throw;
             }
         }
@@ -69,7 +89,15 @@ namespace Tracker.Client.Services
             {
                 var response = await _httpClient.PostAsJsonAsync("api/contacts", contact);
                 response.EnsureSuccessStatusCode();
-                return await response.Content.ReadFromJsonAsync<ContactDto>();
+                
+                var result = await response.Content.ReadFromJsonAsync<ContactDto>();
+                if (result == null)
+                {
+                    _logger.LogError("Received null response when creating contact");
+                    throw new InvalidOperationException("Failed to deserialize the contact from the API response");
+                }
+                
+                return result;
             }
             catch (Exception ex)
             {

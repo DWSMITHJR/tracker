@@ -1,0 +1,519 @@
+@page "/incidents"
+@using Tracker.Client.Models
+@using Tracker.Client.Services
+@using Tracker.Shared.Auth
+@* Using client models instead of shared models to avoid ambiguity *@
+@attribute [Authorize]
+@inject IIncidentService IncidentService
+@inject NavigationManager NavigationManager
+@inject ILogger<Index> Logger
+
+<PageTitle>Incidents</PageTitle>
+
+<div class="flex flex-col">
+    <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+        <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-2xl font-bold text-gray-900">Incidents</h1>
+                <button @onclick='() => NavigationManager.NavigateTo("/incidents/new")'
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    New Incident
+                </button>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div class="bg-white shadow rounded-lg p-4 mb-6">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="sm:col-span-2">
+                        <label for="search" class="block text-sm font-medium text-gray-700">Search</label>
+                        <div class="mt-1 relative rounded-md shadow-sm">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <input type="text" @bind="searchQuery" @bind:event="oninput" @onkeyup="HandleSearchKeyUp"
+                                   class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md" 
+                                   placeholder="Search incidents..." />
+                        </div>
+                    </div>
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
+                        <select id="status" @bind="statusFilter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="">All Statuses</option>
+                            @foreach (var status in availableStatuses)
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button @onclick="FilterIncidents" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Apply Filters
+                        </button>
+                        <button @onclick="ResetFilters" class="ml-2 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incidents Table -->
+            <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                @if (isLoading)
+                {
+                    <div class="flex justify-center items-center p-8">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                    </div>
+                }
+                else if (incidents == null || !incidents.Any())
+                {
+                    <div class="bg-white p-8 text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No incidents found</h3>
+                        <p class="mt-1 text-sm text-gray-500">
+                            @(hasFilters ? "Try adjusting your search or filter criteria" : "Get started by creating a new incident.")
+                        </p>
+                        @if (!hasFilters)
+                        {
+                            <div class="mt-6">
+                                <button @onclick="() => NavigationManager.NavigateTo('/incidents/new')"
+                                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                                    </svg>
+                                    New Incident
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ID
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Title
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Priority
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Created
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Assigned To
+                                </th>
+                                <th scope="col" class="relative px-6 py-3">
+                                    <span class="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach (var incident in incidents)
+                            {
+                                <tr class="hover:bg-gray-50 cursor-pointer" @onclick="() => ViewIncident(incident.Id.ToString())">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        @incident.Id.ToString().Substring(0, 8)
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-medium text-gray-900">@incident.Title</div>
+                                        <div class="text-sm text-gray-500">@(incident.Description?.Length > 50 ? incident.Description.Substring(0, 50) + "..." : incident.Description)</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full @GetStatusBadgeClass(incident.Status)">
+                                            @incident.Status
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full @GetPriorityBadgeClass(incident.Priority ?? "")">
+                                            @(incident.Priority ?? "Not Set")
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        @incident.CreatedAt.ToString("MMM d, yyyy")
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if (!string.IsNullOrEmpty(incident.AssignedToName))
+                                        {
+                                            <div class="flex items-center">
+                                                <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
+                                                    @GetUserInitials(incident.AssignedToName)
+                                                </div>
+                                                <div class="ml-2">
+                                                    <div class="text-sm font-medium text-gray-900">@incident.AssignedToName</div>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-gray-400">Unassigned</span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div class="flex justify-end space-x-2">
+                                            <button @onclick:stopPropagation="() => EditIncident(incident.Id)" 
+                                                    class="text-indigo-600 hover:text-indigo-900">
+                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                                </svg>
+                                            </button>
+                                            <button @onclick:stopPropagation="() => ShowDeleteConfirmation(incident)" 
+                                                    class="text-red-600 hover:text-red-900">
+                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- Pagination -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                            <div class="flex-1 flex justify-between sm:hidden">
+                                <button @onclick="PreviousPage" 
+                                        disabled="@(currentPage <= 1)"
+                                        class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 @(currentPage <= 1 ? "opacity-50 cursor-not-allowed" : "") ">
+                                    Previous
+                                </button>
+                                <button @onclick="NextPage" 
+                                        disabled="@(currentPage >= totalPages)"
+                                        class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 @(currentPage >= totalPages ? "opacity-50 cursor-not-allowed" : "") ">
+                                    Next
+                                </button>
+                            </div>
+                            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-700">
+                                        Showing <span class="font-medium">@((currentPage - 1) * pageSize + 1)</span> to 
+                                        <span class="font-medium">@Math.Min(currentPage * pageSize, totalItems)</span> of 
+                                        <span class="font-medium">@totalItems</span> results
+                                    </p>
+                                </div>
+                                <div>
+                                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                        <button @onclick="FirstPage" 
+                                                disabled="@(currentPage <= 1)"
+                                                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 @(currentPage <= 1 ? "opacity-50 cursor-not-allowed" : "") ">
+                                            <span class="sr-only">First</span>
+                                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                                <path fill-rule="evenodd" d="M8.707 5.293a1 1 0 010 1.414L5.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <button @onclick="PreviousPage" 
+                                                disabled="@(currentPage <= 1)"
+                                                class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 @(currentPage <= 1 ? "opacity-50 cursor-not-allowed" : "") ">
+                                            <span class="sr-only">Previous</span>
+                                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        
+                                        @for (int i = 1; i <= totalPages; i++)
+                                        {
+                                            if (i == 1 || i == totalPages || (i >= currentPage - 1 && i <= currentPage + 1) || 
+                                                (i == currentPage - 2 && currentPage > 3) || 
+                                                (i == currentPage + 2 && currentPage < totalPages - 2))
+                                            {
+                                                <button @onclick="() => GoToPage(i)" 
+                                                        class="relative inline-flex items-center px-4 py-2 border @(i == currentPage ? "border-indigo-500 bg-indigo-50 text-indigo-600" : "border-gray-300 bg-white text-gray-500 hover:bg-gray-50") text-sm font-medium">
+                                                    @i
+                                                </button>
+                                            }
+                                            else if ((i == currentPage - 2 && currentPage > 3) || (i == currentPage + 2 && currentPage < totalPages - 2))
+                                            {
+                                                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                                    ...
+                                                </span>
+                                            }
+                                        }
+                                        
+                                        <button @onclick="NextPage" 
+                                                disabled="@(currentPage >= totalPages)"
+                                                class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 @(currentPage >= totalPages ? "opacity-50 cursor-not-allowed" : "") ">
+                                            <span class="sr-only">Next</span>
+                                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                        <button @onclick="LastPage" 
+                                                disabled="@(currentPage >= totalPages)"
+                                                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 @(currentPage >= totalPages ? "opacity-50 cursor-not-allowed" : "") ">
+                                            <span class="sr-only">Last</span>
+                                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                                <path fill-rule="evenodd" d="M11.293 14.707a1 1 0 010-1.414L14.586 10l-3.293-3.293a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteConfirmation)
+{
+    <div class="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                            Delete Incident
+                        </h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">
+                                Are you sure you want to delete incident <span class="font-medium">@(incidentToDelete?.Id.ToString().Substring(0, 8) ?? "")</span>? This action cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                    <button @onclick="DeleteIncident" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Delete
+                    </button>
+                    <button @onclick="() => showDeleteConfirmation = false" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Tracker.Client.Models.IncidentDto> incidents = new();
+    private bool isLoading = true;
+    private string searchQuery = "";
+    private string statusFilter = "";
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalItems = 0;
+    private int totalPages = 0;
+    private bool showDeleteConfirmation = false;
+    private Tracker.Client.Models.IncidentDto? incidentToDelete = null;
+    private List<string> availableStatuses = new() { "Open", "In Progress", "Resolved", "Closed" };
+    private bool hasFilters => !string.IsNullOrWhiteSpace(searchQuery) || !string.IsNullOrEmpty(statusFilter);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadIncidents();
+    }
+
+    private async Task LoadIncidents()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await IncidentService.GetIncidentsAsync(currentPage, pageSize, searchQuery, statusFilter);
+            if (result != null && result.Items != null)
+            {
+                incidents = result.Items.ToList();
+                totalItems = result.TotalCount;
+                totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading incidents");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task FilterIncidents()
+    {
+        currentPage = 1; // Reset to first page when filters change
+        await LoadIncidents();
+    }
+
+    private async Task ResetFilters()
+    {
+        searchQuery = "";
+        statusFilter = "";
+        currentPage = 1;
+        await LoadIncidents();
+    }
+
+    private void ViewIncident(string id)
+    {
+        NavigationManager.NavigateTo($"/incidents/{id}");
+    }
+
+    private void EditIncident(string id)
+    {
+        NavigationManager.NavigateTo($"/incidents/{id}/edit");
+    }
+
+    private void ShowDeleteConfirmation(Tracker.Client.Models.IncidentDto incident)
+    {
+        incidentToDelete = incident;
+        showDeleteConfirmation = true;
+    }
+
+    private async Task DeleteIncident()
+    {
+        if (incidentToDelete != null)
+        {
+            try
+            {
+                var success = await IncidentService.DeleteIncidentAsync(incidentToDelete.Id);
+                if (success)
+                {
+                    // Remove from the local list
+                    incidents.Remove(incidentToDelete);
+                    totalItems--;
+                    
+                    // Show success message
+                    // In a real app, you might use a toast notification
+                    Logger.LogInformation($"Incident {incidentToDelete.IncidentNumber} deleted successfully");
+                }
+                else
+                {
+                    Logger.LogError($"Failed to delete incident {incidentToDelete.IncidentNumber}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error deleting incident {IncidentNumber}", incidentToDelete?.IncidentNumber ?? "unknown");
+                // In a real app, you would show an error message to the user
+            }
+            finally
+            {
+                showDeleteConfirmation = false;
+                incidentToDelete = null;
+            }
+        }
+    }
+
+    private async Task FirstPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage = 1;
+            await LoadIncidents();
+        }
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            await LoadIncidents();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+            await LoadIncidents();
+        }
+    }
+
+    private async Task LastPage()
+    {
+        if (currentPage < totalPages)
+        {
+            currentPage = totalPages;
+            await LoadIncidents();
+        }
+    }
+
+    private async Task GoToPage(int page)
+    {
+        if (page >= 1 && page <= totalPages && page != currentPage)
+        {
+            currentPage = page;
+            await LoadIncidents();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Open" => "bg-red-100 text-red-800",
+            "In Progress" => "bg-yellow-100 text-yellow-800",
+            "Resolved" => "bg-green-100 text-green-800",
+            "Closed" => "bg-gray-100 text-gray-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private string GetPriorityBadgeClass(string? priority)
+    {
+        if (string.IsNullOrEmpty(priority))
+            return "bg-gray-100 text-gray-800";
+            
+        return priority switch
+        {
+            "Low" => "bg-green-100 text-green-800",
+            "Medium" => "bg-yellow-100 text-yellow-800",
+            "High" => "bg-orange-100 text-orange-800",
+            "Critical" => "bg-red-100 text-red-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+
+    private string GetUserInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "??";
+            
+        var names = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (names.Length == 0)
+            return "??";
+            
+        if (names.Length == 1)
+            return names[0][0].ToString().ToUpper();
+            
+        return $"{names[0][0]}{names[names.Length - 1][0]}".ToUpper();
+    }
+    
+    private async Task HandleSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await FilterIncidents();
+        }
+    }
+}

@@ -1,8 +1,10 @@
 @page "/incidents/{id}/edit"
-@using Tracker.Client.Models
-@using Tracker.Client.Services
 @using Tracker.Shared.Auth
+@using Tracker.Shared.Models
 @using System.ComponentModel.DataAnnotations
+@using System.Runtime.Serialization
+@using System
+@using System.Linq.Expressions
 @attribute [Authorize]
 @inject IIncidentService IncidentService
 @inject IIndividualService IndividualService
@@ -10,7 +12,7 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<Edit> Logger
 
-<PageTitle>Edit Incident @(incident?.IncidentNumber ?? "")</PageTitle>
+<PageTitle>Edit Incident @(incident?.Id.ToString() ?? "")</PageTitle>
 
 @if (isLoading)
 {
@@ -26,7 +28,7 @@ else if (incident == null)
             <p class="mt-1 max-w-2xl text-sm text-gray-500">The requested incident could not be found.</p>
         </div>
         <div class="px-4 py-4 sm:px-6">
-            <button @onclick="() => NavigationManager.NavigateTo('/incidents')" 
+            <button @onclick="@(() => NavigationManager.NavigateTo("/incidents"))"
                     class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 Back to Incidents
             </button>
@@ -49,7 +51,7 @@ else
                             <svg class="flex-shrink-0 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                             </svg>
-                            <a href="/incidents/@incident.Id" class="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700">@incident.IncidentNumber</a>
+                            <a href="/incidents/@Id" class="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700">@incident.Id.ToString()</a>
                         </div>
                     </li>
                     <li>
@@ -68,7 +70,7 @@ else
 
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <EditForm Model="@editModel" OnValidSubmit="HandleValidSubmit">
+            <EditForm Model="@incident" OnValidSubmit="HandleValidSubmit">
                 <DataAnnotationsValidator />
                 <ValidationSummary class="mb-4 p-4 bg-red-50 text-red-700 rounded-md" />
 
@@ -84,8 +86,8 @@ else
                         <div class="sm:col-span-6">
                             <label for="title" class="block text-sm font-medium text-gray-700">Title *</label>
                             <div class="mt-1">
-                                <InputText id="title" @bind-Value="editModel.Title" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" />
-                                <ValidationMessage For="@(() => editModel.Title)" class="mt-1 text-sm text-red-600" />
+                                <InputText id="title" Value="@incident.Title" ValueChanged="@(async (val) => { incident.Title = val; await Task.CompletedTask; })" ValueExpression="@(() => incident.Title)" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" />
+                                <ValidationMessage For="@(() => incident.Title)" class="mt-1 text-sm text-red-600" />
                             </div>
                         </div>
 
@@ -93,7 +95,7 @@ else
                         <div class="sm:col-span-6">
                             <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
                             <div class="mt-1">
-                                <InputTextArea id="description" @bind-Value="editModel.Description" rows="4" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" />
+                                <InputTextArea id="description" Value="@incident.Description" ValueChanged="@(async (val) => { incident.Description = val; await Task.CompletedTask; })" ValueExpression="@(() => incident.Description)" rows="4" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" />
                                 <p class="mt-2 text-sm text-gray-500">Provide a detailed description of the incident. Markdown is supported.</p>
                             </div>
                         </div>
@@ -102,14 +104,15 @@ else
                         <div class="sm:col-span-3">
                             <label for="status" class="block text-sm font-medium text-gray-700">Status *</label>
                             <div class="mt-1">
-                                <InputSelect id="status" @bind-Value="editModel.Status" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                                    <option value="">Select a status</option>
+                                <InputSelect id="status" @bind-Value="incident.Status" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="">Select a status...</option>
                                     <option value="Open">Open</option>
                                     <option value="In Progress">In Progress</option>
+                                    <option value="Pending">Pending</option>
                                     <option value="Resolved">Resolved</option>
                                     <option value="Closed">Closed</option>
                                 </InputSelect>
-                                <ValidationMessage For="@(() => editModel.Status)" class="mt-1 text-sm text-red-600" />
+                                <ValidationMessage For="@(() => incident.Status)" class="mt-1 text-sm text-red-600" />
                             </div>
                         </div>
 
@@ -117,14 +120,14 @@ else
                         <div class="sm:col-span-3">
                             <label for="priority" class="block text-sm font-medium text-gray-700">Priority *</label>
                             <div class="mt-1">
-                                <InputSelect id="priority" @bind-Value="editModel.Priority" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                                    <option value="">Select a priority</option>
+                                <InputSelect id="priority" @bind-Value="incident.Priority" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="">Select a priority...</option>
                                     <option value="Low">Low</option>
                                     <option value="Medium">Medium</option>
                                     <option value="High">High</option>
                                     <option value="Critical">Critical</option>
                                 </InputSelect>
-                                <ValidationMessage For="@(() => editModel.Priority)" class="mt-1 text-sm text-red-600" />
+                                <ValidationMessage For="@(() => incident.Priority)" class="mt-1 text-sm text-red-600" />
                             </div>
                         </div>
 
@@ -132,7 +135,7 @@ else
                         <div class="sm:col-span-3">
                             <label for="type" class="block text-sm font-medium text-gray-700">Type</label>
                             <div class="mt-1">
-                                <InputText id="type" @bind-Value="editModel.Type" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" />
+                                <InputText id="type" Value="@incident.Type" ValueChanged="@(async (val) => { incident.Type = val; await Task.CompletedTask; })" ValueExpression="@(() => incident.Type)" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" />
                             </div>
                         </div>
 
@@ -140,7 +143,7 @@ else
                         <div class="sm:col-span-3">
                             <label for="assignedTo" class="block text-sm font-medium text-gray-700">Assigned To</label>
                             <div class="mt-1">
-                                <InputText id="assignedTo" @bind-Value="editModel.AssignedTo" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" />
+                                <InputText id="assignedTo" @bind-Value="AssignedToValue" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" />
                                 <p class="mt-1 text-sm text-gray-500">Enter the name or email of the assignee</p>
                             </div>
                         </div>
@@ -159,11 +162,11 @@ else
                         <div class="sm:col-span-3">
                             <label for="individualId" class="block text-sm font-medium text-gray-700">Related Individual</label>
                             <div class="mt-1 flex rounded-md shadow-sm">
-                                <InputSelect id="individualId" @bind-Value="editModel.IndividualId" class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm border-gray-300">
+                                <InputSelect id="individualId" @bind-Value="individualIdValue" class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm border-gray-300">
                                     <option value="">Select an individual</option>
                                     @foreach (var individual in individuals)
                                     {
-                                        <option value="@individual.Id">@individual.FullName</option>
+                                        <option value="@individual.Id">@($"{individual.FirstName} {individual.LastName}")</option>
                                     }
                                 </InputSelect>
                                 <a href="/individuals/new" class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 text-sm hover:bg-gray-100">
@@ -178,7 +181,7 @@ else
                         <div class="sm:col-span-3">
                             <label for="organizationId" class="block text-sm font-medium text-gray-700">Related Organization</label>
                             <div class="mt-1 flex rounded-md shadow-sm">
-                                <InputSelect id="organizationId" @bind-Value="editModel.OrganizationId" class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm border-gray-300">
+                                <InputSelect id="organizationId" @bind-Value="organizationIdValue" class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm border-gray-300">
                                     <option value="">Select an organization</option>
                                     @foreach (var org in organizations)
                                     {
@@ -221,15 +224,72 @@ else
         </div>
     </div>
 
+}
+
 @code {
     [Parameter]
-    public string Id { get; set; }
+    public string Id { get; set; } = string.Empty;
 
-    private Tracker.Shared.Models.IncidentDto incident;
-    private EditIncidentModel editModel;
+    private IncidentDto incident = new()
+    {
+        Id = Guid.Empty,
+        Title = string.Empty,
+        Status = "Open",
+        CreatedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow,
+        IsActive = true,
+        Tags = new List<string>(),
+        InvolvedIndividuals = new List<IncidentIndividualDto>()
+    };
     private bool isLoading = true;
     private bool isSaving = false;
     private List<IndividualDto> individuals = new();
+    private string individualIdValue
+    {
+        get => incident.ReportedById?.ToString() ?? string.Empty;
+        set
+        {
+            if (Guid.TryParse(value, out var id))
+            {
+                incident.ReportedById = id;
+            }
+            else
+            {
+                incident.ReportedById = null;
+            }
+        }
+    }
+
+    private string organizationIdValue
+    {
+        get => incident.OrganizationId?.ToString() ?? string.Empty;
+        set
+        {
+            if (Guid.TryParse(value, out var id))
+            {
+                incident.OrganizationId = id;
+            }
+            else
+            {
+                incident.OrganizationId = null;
+            }
+        }
+    }
+
+    private string AssignedToValue
+    {
+        get => incident?.AssignedToId?.ToString() ?? string.Empty;
+        set 
+        { 
+            if (incident != null)
+            {
+                if (Guid.TryParse(value, out var id)) 
+                    incident.AssignedToId = id; 
+                else 
+                    incident.AssignedToId = null; 
+            }
+        }
+    }
     private List<OrganizationDto> organizations = new();
 
     protected override async Task OnInitializedAsync()
@@ -237,32 +297,51 @@ else
         try
         {
             // Load incident data
-            incident = await IncidentService.GetIncidentByIdAsync(Id);
-            editModel = new EditIncidentModel
+            if (!Guid.TryParse(Id, out var incidentId))
             {
-                Title = incident.Title,
-                Description = incident.Description,
-                Status = incident.Status,
-                Priority = incident.Priority,
-                Type = incident.Type,
-                AssignedTo = incident.AssignedTo,
-                IndividualId = incident.IndividualId,
-                OrganizationId = incident.OrganizationId
-            };
+                Logger.LogError("Invalid incident ID format");
+                isLoading = false;
+                return;
+            }
+            
+            var loadedIncident = await IncidentService.GetIncidentByIdAsync(incidentId);
+            if (loadedIncident == null)
+            {
+                Logger.LogError("Incident not found");
+                isLoading = false;
+                return;
+            }
+            
+            // Update the existing incident object to maintain reference
+            incident = loadedIncident;
 
             // Load related data in parallel
             var tasks = new List<Task>();
             
             tasks.Add(Task.Run(async () => 
             {
-                try { individuals = (await IndividualService.GetIndividualsAsync(1, 1000)).Items.ToList(); }
-                catch (Exception ex) { Logger.LogError(ex, "Error loading individuals"); }
+                try 
+                { 
+                    var result = await IndividualService.GetIndividualsAsync(1, 1000);
+                    individuals = result?.Items?.ToList() ?? new List<IndividualDto>();
+                }
+                catch (Exception ex) 
+                { 
+                    Logger.LogError(ex, "Error loading individuals");
+                }
             }));
             
             tasks.Add(Task.Run(async () => 
             {
-                try { organizations = (await OrganizationService.GetOrganizationsAsync(1, 1000)).Items.ToList(); }
-                catch (Exception ex) { Logger.LogError(ex, "Error loading organizations"); }
+                try 
+                { 
+                    var result = await OrganizationService.GetOrganizationsAsync(1, 1000);
+                    organizations = result?.Items?.ToList() ?? new List<OrganizationDto>();
+                }
+                catch (Exception ex) 
+                { 
+                    Logger.LogError(ex, "Error loading organizations");
+                }
             }));
             
             await Task.WhenAll(tasks);
@@ -270,7 +349,6 @@ else
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading incident data");
-            // In a real app, you would show an error message to the user
         }
         finally
         {
@@ -284,62 +362,49 @@ else
         {
             isSaving = true;
             
-            // Create update DTO with only the changed fields
-            var updateDto = new UpdateIncidentDto
+            var result = await IncidentService.UpdateIncidentAsync(incident);
+            if (result != null)
             {
-                Id = Id,
-                Title = editModel.Title != incident.Title ? editModel.Title : null,
-                Description = editModel.Description != incident.Description ? editModel.Description : null,
-                Status = editModel.Status != incident.Status ? editModel.Status : null,
-                Priority = editModel.Priority != incident.Priority ? editModel.Priority : null,
-                Type = editModel.Type != incident.Type ? editModel.Type : null,
-                AssignedTo = editModel.AssignedTo != incident.AssignedTo ? editModel.AssignedTo : null,
-                IndividualId = editModel.IndividualId != incident.IndividualId ? editModel.IndividualId : null,
-                OrganizationId = editModel.OrganizationId != incident.OrganizationId ? editModel.OrganizationId : null
-            };
-
-            var success = await IncidentService.UpdateIncidentAsync(updateDto);
-            
-            if (success)
-            {
-                // Navigate back to the incident details page
-                NavigationManager.NavigateTo($"/incidents/{Id}");
+                NavigationManager.NavigateTo($"/incidents/{result.Id}");
+                return;
             }
             else
             {
-                // In a real app, you would show an error message to the user
-                Logger.LogError("Failed to update incident");
+                Logger.LogError("Failed to update incident. Please try again.");
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error updating incident");
-            // In a real app, you would show an error message to the user
         }
         finally
         {
             isSaving = false;
+            StateHasChanged();
         }
     }
-
-    // Model for the edit form with validation attributes
-    public class EditIncidentModel
+    
+    private Task OnReportedByIdChanged(string? value)
     {
-        [Required(ErrorMessage = "Title is required")]
-        [StringLength(200, ErrorMessage = "Title cannot exceed 200 characters")]
-        public string Title { get; set; }
-
-        public string Description { get; set; }
-
-        [Required(ErrorMessage = "Status is required")]
-        public string Status { get; set; }
-
-        [Required(ErrorMessage = "Priority is required")]
-        public string Priority { get; set; }
-
-        public string Type { get; set; }
-        public string AssignedTo { get; set; }
-        public string IndividualId { get; set; }
-        public string OrganizationId { get; set; }
+        if (incident != null)
+        {
+            if (Guid.TryParse(value, out var id))
+                incident.ReportedById = id;
+            else
+                incident.ReportedById = null;
+        }
+        return Task.CompletedTask;
+    }
+    
+    private Task OnOrganizationIdChanged(string? value)
+    {
+        if (incident != null)
+        {
+            if (Guid.TryParse(value, out var id))
+                incident.OrganizationId = id;
+            else
+                incident.OrganizationId = null;
+        }
+        return Task.CompletedTask;
     }
 }

@@ -42,9 +42,9 @@ namespace Tracker.API.Controllers
                 {
                     var searchTermLower = searchTerm.ToLower();
                     query = query.Where(l => 
-                        l.Message.ToLower().Contains(searchTermLower) ||
-                        l.Source.ToLower().Contains(searchTermLower) ||
-                        l.UserId.ToLower().Contains(searchTermLower));
+                        (l.Message != null && l.Message.ToLower().Contains(searchTermLower)) ||
+                        (l.Source != null && l.Source.ToLower().Contains(searchTermLower)) ||
+                        (l.UserId != null && l.UserId.ToLower().Contains(searchTermLower)));
                 }
 
                 if (!string.IsNullOrEmpty(level))

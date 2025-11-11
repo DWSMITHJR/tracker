@@ -5,8 +5,19 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text;
 using System.Net;
+using System.Linq;
 using Microsoft.JSInterop;
+using Tracker.Client.Models;
 using Tracker.Shared.Models;
+using Tracker.Client.Extensions;
+
+// Aliases for shared models to avoid ambiguity
+using SharedTimelineEntry = Tracker.Shared.Models.TimelineEntryDto;
+using SharedCreateTimelineEntry = Tracker.Shared.Models.CreateTimelineEntryDto;
+
+// Aliases for client models for clarity
+using ClientTimelineEntry = Tracker.Client.Models.TimelineEntryDto;
+using ClientCreateTimelineEntry = Tracker.Client.Models.CreateTimelineEntryDto;
 
 namespace Tracker.Client.Services
 {
@@ -24,11 +35,12 @@ namespace Tracker.Client.Services
             _jsRuntime = jsRuntime;
         }
 
-        private async Task<string> GetAuthTokenAsync()
+        private async Task<string?> GetAuthTokenAsync()
         {
             try
             {
-                return await _jsRuntime.InvokeAsync<string>("localStorage.getItem", AuthTokenKey);
+                var token = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", AuthTokenKey);
+                return string.IsNullOrEmpty(token) ? null : token;
             }
             catch (Exception ex)
             {
@@ -47,7 +59,7 @@ namespace Tracker.Client.Services
             return _httpClient;
         }
 
-        public async Task<IEnumerable<TimelineEntryDto>> GetTimelineForIncidentAsync(string incidentId)
+        public async Task<IEnumerable<ClientTimelineEntry>> GetTimelineForIncidentAsync(string incidentId)
         {
             try
             {
@@ -56,12 +68,12 @@ namespace Tracker.Client.Services
                 
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<IEnumerable<TimelineEntryDto>>();
-                    return result ?? Enumerable.Empty<TimelineEntryDto>();
+                    var result = await response.Content.ReadFromJsonAsync<IEnumerable<SharedTimelineEntry>>();
+                    return result?.Select(e => e.ToClientTimelineEntry()) ?? Enumerable.Empty<ClientTimelineEntry>();
                 }
 
                 await HandleApiError(response, "Error fetching timeline entries");
-                return Enumerable.Empty<TimelineEntryDto>();
+                return Enumerable.Empty<ClientTimelineEntry>();
             }
             catch (Exception ex)
             {
@@ -70,20 +82,46 @@ namespace Tracker.Client.Services
             }
         }
 
-        public async Task<TimelineEntryDto> AddTimelineEntryAsync(string incidentId, CreateTimelineEntryDto entry)
+        public async Task<ClientTimelineEntry> AddTimelineEntryAsync(string incidentId, ClientCreateTimelineEntry entry)
         {
             try
             {
                 var client = await GetAuthenticatedClientAsync();
-                var response = await client.PostAsJsonAsync($"api/incidents/{incidentId}/timeline", entry);
-                
-                if (response.IsSuccessStatusCode)
+                var sharedEntry = new SharedCreateTimelineEntry
                 {
-                    return await response.Content.ReadFromJsonAsync<TimelineEntryDto>();
+                    Event = entry.Event,
+                    Description = entry.Description
+                };
+
+                var response = await client.PostAsJsonAsync($"api/incidents/{incidentId}/timeline", sharedEntry);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    await HandleApiError(response, "Error adding timeline entry");
+                    // Return a default timeline entry with an error message
+                    return new ClientTimelineEntry
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Event = "Error",
+                        Description = "Failed to add timeline entry. Please try again.",
+                        Timestamp = DateTime.UtcNow
+                    };
                 }
 
-                await HandleApiError(response, "Error adding timeline entry");
-                return null;
+                var result = await response.Content.ReadFromJsonAsync<SharedTimelineEntry>();
+                if (result == null)
+                {
+                    _logger.LogWarning("Received null response when adding timeline entry to incident {IncidentId}", incidentId);
+                    return new ClientTimelineEntry
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Event = "Error",
+                        Description = "Received an invalid response when adding timeline entry.",
+                        Timestamp = DateTime.UtcNow
+                    };
+                }
+                
+                return result.ToClientTimelineEntry();
             }
             catch (Exception ex)
             {

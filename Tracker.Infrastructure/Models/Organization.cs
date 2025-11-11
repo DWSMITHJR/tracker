@@ -36,10 +36,15 @@ namespace Tracker.Infrastructure.Models
         [MaxLength(100)]
         public string Country { get; set; } = string.Empty;
 
-        public bool IsActive { get; set; } = true;
+        public new bool IsActive { get; set; } = true;
 
         // Navigation properties
+        // Many-to-many relationship with Users (through UserOrganizations join table)
+        public virtual ICollection<User> Members { get; set; } = new List<User>();
+        
+        // One-to-many relationship for primary organization
         public virtual ICollection<User> Users { get; set; } = new List<User>();
+        
         public virtual ICollection<Individual> Individuals { get; set; } = new List<Individual>();
         public virtual ICollection<Contact> Contacts { get; set; } = new List<Contact>();
         public virtual ICollection<Incident> Incidents { get; set; } = new List<Incident>();

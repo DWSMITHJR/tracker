@@ -46,7 +46,14 @@ namespace Tracker.Infrastructure.Models
         public override DateTimeOffset? LockoutEnd { get; set; }
         
         public DateTime? LastLogin { get; set; }
+        // Navigation property for refresh tokens
+        public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+        
+        // Legacy properties - keeping for backward compatibility
+        [Obsolete("Use RefreshTokens navigation property instead")]
         public string? RefreshToken { get; set; }
+        
+        [Obsolete("Use RefreshTokens navigation property instead")]
         public DateTime? RefreshTokenExpiryTime { get; set; }
 
         // Navigation properties

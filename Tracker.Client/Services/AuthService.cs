@@ -9,12 +9,12 @@ namespace Tracker.Client.Services;
 public class AuthService : IAuthService
 {
     private readonly HttpClient _httpClient;
-    private readonly AuthenticationStateProvider _authStateProvider;
+    private readonly CustomAuthStateProvider _authStateProvider;
     private readonly ILocalStorageService _localStorage;
 
     public AuthService(
         HttpClient httpClient,
-        AuthenticationStateProvider authStateProvider,
+        CustomAuthStateProvider authStateProvider,
         ILocalStorageService localStorage)
     {
         _httpClient = httpClient;
@@ -47,6 +47,11 @@ public class AuthService : IAuthService
 
         var loginResult = await response.Content.ReadFromJsonAsync<LoginResult>();
         
+        if (loginResult == null || string.IsNullOrEmpty(loginResult.Token) || string.IsNullOrEmpty(loginResult.RefreshToken))
+        {
+            return new AuthResult { Success = false, Error = "Invalid login response" };
+        }
+        
         // Store the tokens
         await _localStorage.SetItemAsync("authToken", loginResult.Token);
         await _localStorage.SetItemAsync("refreshToken", loginResult.RefreshToken);
@@ -70,12 +75,12 @@ public class AuthService : IAuthService
         _httpClient.DefaultRequestHeaders.Authorization = null;
     }
 
-    public async Task<string> GetToken()
+    public async Task<string?> GetToken()
     {
         return await _localStorage.GetItemAsync<string>("authToken");
     }
 
-    public async Task<string> GetRefreshToken()
+    public async Task<string?> GetRefreshToken()
     {
         return await _localStorage.GetItemAsync<string>("refreshToken");
     }
@@ -113,6 +118,12 @@ public class AuthService : IAuthService
         
         var result = await response.Content.ReadFromJsonAsync<LoginResult>();
         
+        if (result == null || string.IsNullOrEmpty(result.Token) || string.IsNullOrEmpty(result.RefreshToken))
+        {
+            await Logout();
+            return new AuthResult { Success = false, Error = "Invalid refresh token response" };
+        }
+        
         // Store the new tokens
         await _localStorage.SetItemAsync("authToken", result.Token);
         await _localStorage.SetItemAsync("refreshToken", result.RefreshToken);
@@ -126,12 +137,12 @@ public class AuthService : IAuthService
 
 public class ApiError
 {
-    public string Message { get; set; }
-    public Dictionary<string, string[]> Errors { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public Dictionary<string, string[]> Errors { get; set; } = new();
 }
 
 public class AuthResult
 {
     public bool Success { get; set; }
-    public string Error { get; set; }
+    public string? Error { get; set; }
 }

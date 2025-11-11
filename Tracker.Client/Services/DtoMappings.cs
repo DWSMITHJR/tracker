@@ -6,7 +6,7 @@ namespace Tracker.Client.Services
 {
     public static class DtoMappings
     {
-        public static Tracker.Client.Models.IncidentDto ToClientDto(this Tracker.Shared.Models.IncidentDto sharedDto)
+        public static Tracker.Client.Models.IncidentDto? ToClientDto(this Tracker.Shared.Models.IncidentDto? sharedDto)
         {
             if (sharedDto == null) return null;
 
@@ -24,13 +24,13 @@ namespace Tracker.Client.Services
                 UpdatedAt = sharedDto.UpdatedAt,
                 ResolvedAt = sharedDto.ResolvedDate,
                 Resolution = sharedDto.Resolution,
-                OrganizationId = sharedDto.ReportedById?.ToString(),
-                OrganizationName = sharedDto.ReportedByName,
-                Tags = Array.Empty<string>()
+                OrganizationId = sharedDto.OrganizationId?.ToString(),
+                // Organization name is not available in the shared DTO, so we'll use an empty string
+                Tags = sharedDto.Tags?.ToArray() ?? Array.Empty<string>()
             };
         }
 
-        public static Tracker.Shared.Models.IncidentDto ToSharedDto(this Tracker.Client.Models.IncidentDto clientDto)
+        public static Tracker.Shared.Models.IncidentDto? ToSharedDto(this Tracker.Client.Models.IncidentDto? clientDto)
         {
             if (clientDto == null) return null;
 
@@ -50,7 +50,8 @@ namespace Tracker.Client.Services
                 UpdatedAt = clientDto.UpdatedAt,
                 ResolvedDate = clientDto.ResolvedAt,
                 Resolution = clientDto.Resolution,
-                IsActive = true
+                IsActive = true,
+                Tags = clientDto.Tags?.ToList() ?? new List<string>()
             };
         }
     }

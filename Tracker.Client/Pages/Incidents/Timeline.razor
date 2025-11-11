@@ -1,8 +1,12 @@
 @page "/incidents/{IncidentId}/timeline"
 @using Tracker.Client.Services
+@using Tracker.Client.Models
 @using Tracker.Shared.Models
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
+@using ClientTimelineEntry = Tracker.Client.Models.TimelineEntryDto
+@using SharedTimelineEntry = Tracker.Shared.Models.TimelineEntryDto
+@using ClientCreateTimelineEntry = Tracker.Client.Models.CreateTimelineEntryDto
 @attribute [Authorize]
 @inject ITimelineService TimelineService
 @inject NavigationManager NavigationManager
@@ -231,7 +235,7 @@
                     </button>
                     <button type="button" 
                             class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
-                            @onclick="() => { showDeleteConfirmation = false; entryToDelete = null; }"
+                            @onclick="() => { showDeleteConfirmation = false; entryToDelete = string.Empty; }"
                             disabled="@isDeleting">
                         Cancel
                     </button>
@@ -245,7 +249,7 @@
     [Parameter]
     public string IncidentId { get; set; } = string.Empty;
 
-    private List<TimelineEntryDto> timelineEntries = new();
+    private List<ClientTimelineEntry> timelineEntries = new();
     private bool isLoading = true;
     private bool isSubmitting = false;
     private bool isDeleting = false;
@@ -253,7 +257,14 @@
     private bool showDeleteConfirmation = false;
     private string entryToDelete = string.Empty;
     
-    private CreateTimelineEntryDto newEntry = new();
+    private ClientCreateTimelineEntry newEntry = new()
+    {
+        // Initialize with default values if needed
+        IncidentId = string.Empty,
+        Event = string.Empty,
+        Description = string.Empty,
+        Timestamp = DateTime.UtcNow
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -267,8 +278,7 @@
             isLoading = true;
             StateHasChanged();
             
-            var entries = await TimelineService.GetTimelineForIncidentAsync(IncidentId);
-            timelineEntries = entries?.ToList() ?? new List<TimelineEntryDto>();
+            timelineEntries = (await TimelineService.GetTimelineForIncidentAsync(IncidentId))?.ToList() ?? new List<ClientTimelineEntry>();
         }
         catch (Exception ex)
         {
@@ -284,7 +294,7 @@
 
     private void ShowAddEntryModal()
     {
-        newEntry = new CreateTimelineEntryDto();
+        newEntry = new ClientCreateTimelineEntry();
         showAddEntryModal = true;
     }
 
@@ -368,7 +378,7 @@
         {
             isDeleting = false;
             showDeleteConfirmation = false;
-            entryToDelete = null;
+            entryToDelete = string.Empty;
             StateHasChanged();
         }
     }

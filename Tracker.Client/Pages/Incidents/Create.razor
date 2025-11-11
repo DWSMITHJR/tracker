@@ -1,8 +1,8 @@
 @page "/incidents/new"
-@using Tracker.Client.Models
-@using Tracker.Client.Services
 @using Tracker.Shared.Auth
+@using Tracker.Shared.Models
 @using System.ComponentModel.DataAnnotations
+@using System
 @attribute [Authorize]
 @inject IIncidentService IncidentService
 @inject IIndividualService IndividualService
@@ -23,8 +23,14 @@
                 </li>
                 <li>
                     <div class="flex items-center">
-                        <svg class="flex-shrink-0 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                        <svg class="flex-shrink-0 h-5 w-5 text-gray-400" 
+                             xmlns="http://www.w3.org/2000/svg" 
+                             viewBox="0 0 20 20" 
+                             fill="currentColor" 
+                             aria-hidden="true">
+                            <path fill-rule="evenodd" 
+                                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" 
+                                  clip-rule="evenodd" />
                         </svg>
                         <span class="ml-4 text-sm font-medium text-gray-500">Report New</span>
                     </div>
@@ -111,7 +117,7 @@
                                 {
                                     @foreach (var individual in individuals)
                                     {
-                                        <option value="@individual.Id">@individual.FullName</option>
+                                        <option value="@individual.Id">@($"{individual.FirstName} {individual.LastName}")</option>
                                     }
                                 }
                             </InputSelect>
@@ -150,7 +156,12 @@
             <!-- Form Actions -->
             <div class="mt-8 pt-5 border-t border-gray-200">
                 <div class="flex justify-end space-x-3">
-                    <button type="button" @onclick="() => NavigationManager.NavigateTo('/incidents')" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <button type="button" 
+                            @onclick="@(() => NavigationManager.NavigateTo("/incidents"))" 
+                            class="@("bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm " +
+                                   "text-sm font-medium text-gray-700 hover:bg-gray-50 " +
+                                   "focus:outline-none focus:ring-2 focus:ring-offset-2 " +
+                                   "focus:ring-indigo-500")">
                         Cancel
                     </button>
                     <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" disabled="@isSubmitting">
@@ -178,7 +189,6 @@
     private bool isSubmitting = false;
     private List<IndividualDto> individuals = new();
     private List<OrganizationDto> organizations = new();
-    private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -208,7 +218,7 @@
         }
         finally
         {
-            isLoading = false;
+            // Loading complete
         }
     }
 
@@ -218,17 +228,39 @@
         {
             isSubmitting = true;
             
-            var createDto = new CreateIncidentDto
+            // Create the incident with form data
+            var incident = new IncidentDto
             {
+                // Basic information
                 Title = createModel.Title,
                 Description = createModel.Description,
                 Type = createModel.Type,
                 Priority = createModel.Priority,
-                IndividualId = string.IsNullOrEmpty(createModel.IndividualId) ? null : createModel.IndividualId,
-                OrganizationId = string.IsNullOrEmpty(createModel.OrganizationId) ? null : createModel.OrganizationId
+                
+                // Status and timestamps
+                Status = "Open",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                IsActive = true,
+                ReportedDate = DateTime.UtcNow,
+                
+                // Initialize collections
+                InvolvedIndividuals = new List<IncidentIndividualDto>(),
+                Tags = new List<string>(),
+                
+                // Initialize other fields to null or default values
+                ResolvedDate = null,
+                Resolution = null,
+                Location = null,
+                AssignedToId = null,
+                AssignedToName = null,
+                ReportedById = null,
+                ReportedByName = null,
+                OrganizationId = null,
+                Id = Guid.Empty
             };
 
-            var result = await IncidentService.CreateIncidentAsync(createDto);
+            var result = await IncidentService.CreateIncidentAsync(incident);
             
             if (result != null)
             {
@@ -257,19 +289,19 @@
     {
         [Required(ErrorMessage = "Title is required")]
         [StringLength(200, ErrorMessage = "Title cannot exceed 200 characters")]
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Description is required")]
         [StringLength(10000, ErrorMessage = "Description is too long")]
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Priority is required")]
         public string Priority { get; set; } = "Medium";
 
         [StringLength(100, ErrorMessage = "Type cannot exceed 100 characters")]
-        public string Type { get; set; }
+        public string? Type { get; set; }
 
-        public string IndividualId { get; set; }
-        public string OrganizationId { get; set; }
+        public string? IndividualId { get; set; }
+        public string? OrganizationId { get; set; }
     }
 }

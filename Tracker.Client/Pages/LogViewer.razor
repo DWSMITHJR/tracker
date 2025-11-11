@@ -65,12 +65,12 @@
                     <tbody>
                         @foreach (var log in logEntries)
                         {
-                            <tr class="log-entry @GetLogLevelClass(log.Level)" @onclick="() => ShowLogDetails(log)">
-                                <td>@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                                <td><span class="badge @GetLogLevelBadgeClass(log.Level)">@log.Level</span></td>
-                                <td>@(log.Message.Length > 100 ? log.Message.Substring(0, 100) + "..." : log.Message)</td>
-                                <td>@log.Source</td>
-                                <td>@(log.UserId ?? "System")</td>
+                            <tr class="log-entry @(log != null ? GetLogLevelClass(log.Level) : string.Empty)">
+                                <td><button class="btn btn-link p-0 border-0 bg-transparent w-100 text-start" @onclick="() => ShowLogDetails(log)">@(log?.Timestamp.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A")</button></td>
+                                <td><span class="badge @(log != null ? GetLogLevelBadgeClass(log.Level) : string.Empty)">@(log?.Level ?? "Unknown")</span></td>
+                                <td>@(log?.Message?.Length > 100 ? log.Message.Substring(0, 100) + "..." : log?.Message)</td>
+                                <td>@log?.Source</td>
+                                <td>@(log?.UserId ?? "System")</td>
                             </tr>
                         }
                     </tbody>
@@ -156,7 +156,7 @@
 
 @code {
     private List<LogEntry> logEntries = new();
-    private LogEntry selectedLog;
+    private LogEntry? selectedLog;
     private bool isLoading = true;
     private int currentPage = 1;
     private int pageSize = 20;
@@ -232,9 +232,20 @@
         }
     }
 
-    private void ShowLogDetails(LogEntry log)
+    private void OnLogEntryClick(LogEntry log)
     {
-        selectedLog = log;
+        if (log != null)
+        {
+            ShowLogDetails(log);
+        }
+    }
+
+    private void ShowLogDetails(LogEntry? log)
+    {
+        if (log != null)
+        {
+            selectedLog = log;
+        }
     }
 
     private void CloseLogDetails()
@@ -242,9 +253,12 @@
         selectedLog = null;
     }
 
-    private string GetLogLevelClass(string level)
+    private string GetLogLevelClass(string? level)
     {
-        return level?.ToLower() switch
+        if (string.IsNullOrEmpty(level))
+            return "";
+            
+        return level.ToLower() switch
         {
             "error" => "log-entry-error",
             "warning" => "log-entry-warning",
@@ -255,9 +269,12 @@
         };
     }
 
-    private string GetLogLevelBadgeClass(string level)
+    private string GetLogLevelBadgeClass(string? level)
     {
-        return level?.ToLower() switch
+        if (string.IsNullOrEmpty(level))
+            return "bg-secondary";
+            
+        return level.ToLower() switch
         {
             "error" => "bg-danger",
             "warning" => "bg-warning text-dark",

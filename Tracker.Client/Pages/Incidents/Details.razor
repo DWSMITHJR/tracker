@@ -1,9 +1,8 @@
 @page "/incidents/{id}"
 @using Microsoft.AspNetCore.Components.Authorization
-@using Tracker.Client.Models
-@using Tracker.Client.Services
 @using Tracker.Shared.Auth
 @using Tracker.Shared.Models
+@using System
 @attribute [Authorize]
 @inject IIncidentService IncidentService
 @inject IIndividualService IndividualService
@@ -35,7 +34,7 @@ else
                             <svg class="flex-shrink-0 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                             </svg>
-                            <span class="ml-4 text-sm font-medium text-gray-500">@incident.IncidentNumber</span>
+                            <span class="ml-4 text-sm font-medium text-gray-500">@incident.Id</span>
                         </div>
                     </li>
                 </ol>
@@ -57,13 +56,13 @@ else
                         Last updated <time datetime="@incident.UpdatedAt.Value.ToString("yyyy-MM-dd")">@incident.UpdatedAt.Value.ToString("MMMM d, yyyy")</time>
                     </div>
                 }
-                @if (incident.ResolvedAt.HasValue)
+                @if (incident.ResolvedDate.HasValue)
                 {
                     <div class="mt-2 flex items-center text-sm text-gray-500">
                         <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                         </svg>
-                        Resolved on <time datetime="@incident.ResolvedAt.Value.ToString("yyyy-MM-dd")">@incident.ResolvedAt.Value.ToString("MMMM d, yyyy")</time>
+                        Resolved on <time datetime="@incident.ResolvedDate.Value.ToString("yyyy-MM-dd")">@incident.ResolvedDate.Value.ToString("MMMM d, yyyy")</time>
                     </div>
                 }
             </div>
@@ -204,9 +203,18 @@ else
                         <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                             <dt class="text-sm font-medium text-gray-500">Priority</dt>
                             <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full @GetPriorityBadgeClass(incident.Priority)">
-                                    @incident.Priority
-                                </span>
+                                @if (incident.Priority != null)
+                                {
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full @GetPriorityBadgeClass(incident.Priority)">
+                                        @incident.Priority
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                        Not Set
+                                    </span>
+                                }
                             </dd>
                         </div>
                         <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -215,19 +223,19 @@ else
                         </div>
                         <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                             <dt class="text-sm font-medium text-gray-500">Reported By</dt>
-                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">@incident.ReportedBy</dd>
+                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">@incident.ReportedByName</dd>
                         </div>
                         <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                             <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
                             <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                                @if (!string.IsNullOrEmpty(incident.AssignedTo))
+                                @if (!string.IsNullOrEmpty(incident.AssignedToName))
                                 {
                                     <div class="flex items-center">
                                         <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
-                                            @GetUserInitials(incident.AssignedTo)
+                                            @GetUserInitials(incident.AssignedToName)
                                         </div>
                                         <div class="ml-2">
-                                            <div class="text-sm font-medium text-gray-900">@incident.AssignedTo</div>
+                                            <div class="text-sm font-medium text-gray-900">@incident.AssignedToName</div>
                                         </div>
                                     </div>
                                 }
@@ -252,12 +260,12 @@ else
                                 </dd>
                             </div>
                         }
-                        @if (incident.ResolvedAt.HasValue)
+                        @if (incident.ResolvedDate.HasValue)
                         {
                             <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                                 <dt class="text-sm font-medium text-gray-500">Resolved</dt>
                                 <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                                    <time datetime="@incident.ResolvedAt.Value.ToString("yyyy-MM-ddTHH:mm:ssZ")">@incident.ResolvedAt.Value.ToString("MMMM d, yyyy 'at' h:mm tt")</time>
+                                    <time datetime="@incident.ResolvedDate?.ToString("yyyy-MM-ddTHH:mm:ssZ")">@incident.ResolvedDate?.ToString("MMMM d, yyyy 'at' h:mm tt")</time>
                                 </dd>
                             </div>
                         }
@@ -273,7 +281,7 @@ else
                 <div class="border-t border-gray-200 px-4 py-5 sm:p-0">
                     <dl class="sm:divide-y sm:divide-gray-200">
                         <!-- Individual section removed as IncidentDto doesn't have IndividualId -->
-                        @if (!string.IsNullOrEmpty(incident.OrganizationId) && relatedOrganization != null)
+                        @if (incident.OrganizationId.HasValue && !incident.OrganizationId.Equals(Guid.Empty) && relatedOrganization != null)
                         {
                             <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                                 <dt class="text-sm font-medium text-gray-500">Organization</dt>
@@ -309,12 +317,24 @@ else
     [Parameter]
     public string? Id { get; set; }
 
-    private Tracker.Client.Models.IncidentDto incident = null!;
+    private IncidentDto incident = new()
+    {
+        Id = Guid.Empty,
+        Title = string.Empty,
+        Description = string.Empty,
+        Status = string.Empty,
+        Priority = string.Empty,
+        Type = string.Empty,
+        CreatedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow,
+        IsActive = true,
+        InvolvedIndividuals = new List<IncidentIndividualDto>(),
+        Tags = new List<string>()
+    };
+    
     private List<TimelineEntryDto> recentActivity = new();
-    private IndividualDto? relatedIndividual;
     private OrganizationDto? relatedOrganization;
     private List<ContactDto> relatedContacts = new();
-    private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -327,33 +347,67 @@ else
 
         try
         {
-            // Load incident details (Id is not null here due to earlier check)
-            incident = await IncidentService.GetIncidentByIdAsync(Id!);
+            // Parse the incident ID once and store it
+            if (!Guid.TryParse(Id, out var incidentId))
+            {
+                Logger.LogError("Invalid incident ID format: {Id}", Id);
+                NavigationManager.NavigateTo("/incidents");
+                return;
+            }
+
+            // Load incident details using the parsed GUID
+            var loadedIncident = await IncidentService.GetIncidentByIdAsync(incidentId);
+            if (loadedIncident == null)
+            {
+                Logger.LogError("Incident not found: {Id}", Id);
+                NavigationManager.NavigateTo("/incidents");
+                return;
+            }
+            incident = loadedIncident;
             
             // Load related data in parallel
             var tasks = new List<Task>();
             
-            // Individual loading removed as IncidentDto doesn't have IndividualId
-            
-            if (!string.IsNullOrEmpty(incident.OrganizationId))
+            if (incident.OrganizationId.HasValue)
             {
                 tasks.Add(Task.Run(async () => 
                 {
-                    try { relatedOrganization = await OrganizationService.GetOrganizationByIdAsync(incident.OrganizationId); }
-                    catch (Exception ex) { Logger.LogError(ex, "Error loading related organization"); }
+                    try 
+                    { 
+                        relatedOrganization = await OrganizationService.GetOrganizationByIdAsync(incident.OrganizationId.Value);
+                    }
+                    catch (Exception ex) 
+                    { 
+                        Logger.LogError(ex, "Error loading related organization"); 
+                    }
                 }));
             }
             
             tasks.Add(Task.Run(async () => 
             {
-                try { recentActivity = (await IncidentService.GetTimelineEntriesAsync(Id, 1, 5)).Items.ToList(); }
-                catch (Exception ex) { Logger.LogError(ex, "Error loading recent activity"); }
+                try 
+                { 
+                    var result = await IncidentService.GetTimelineEntriesAsync(incident.Id, 1, 5);
+                    recentActivity = result?.Items?.ToList() ?? new List<TimelineEntryDto>();
+                }
+                catch (Exception ex) 
+                { 
+                    Logger.LogError(ex, "Error loading recent activity"); 
+                }
             }));
             
             tasks.Add(Task.Run(async () => 
             {
-                try { relatedContacts = (await ContactService.GetContactsByIncidentIdAsync(Id)).ToList(); }
-                catch (Exception ex) { Logger.LogError(ex, "Error loading related contacts"); }
+                try 
+                { 
+                    var contacts = await ContactService.GetContactsByIncidentIdAsync(incident.Id.ToString());
+                    relatedContacts = contacts?.ToList() ?? new List<ContactDto>();
+                }
+                catch (Exception ex) 
+                { 
+                    Logger.LogError(ex, "Error loading related contacts"); 
+                    relatedContacts = new List<ContactDto>();
+                }
             }));
             
             await Task.WhenAll(tasks);
@@ -365,21 +419,21 @@ else
         }
         finally
         {
-            isLoading = false;
+            // Loading complete
         }
     }
 
     private async Task ReopenIncident()
     {
-        if (string.IsNullOrEmpty(Id))
+        if (string.IsNullOrEmpty(Id) || !Guid.TryParse(Id, out var incidentId))
         {
-            Logger.LogWarning("Cannot reopen incident: Id is null or empty");
+            Logger.LogWarning("Cannot reopen incident: Invalid ID format");
             return;
         }
 
         try
         {
-            var result = await IncidentService.UpdateIncidentStatusAsync(Id!, "Open", "Incident reopened");
+            var result = await IncidentService.UpdateIncidentStatusAsync(incidentId, "Open", "Incident reopened");
             if (result)
             {
                 // Refresh the page to show updated status
@@ -393,29 +447,7 @@ else
         }
     }
 
-    private string GetStatusBadgeClass(string status)
-    {
-        return status switch
-        {
-            "Open" => "bg-red-100 text-red-800",
-            "In Progress" => "bg-yellow-100 text-yellow-800",
-            "Resolved" => "bg-green-100 text-green-800",
-            "Closed" => "bg-gray-100 text-gray-800",
-            _ => "bg-gray-100 text-gray-800"
-        };
-    }
-
-    private string GetPriorityBadgeClass(string priority)
-    {
-        return priority switch
-        {
-            "Low" => "bg-green-100 text-green-800",
-            "Medium" => "bg-yellow-100 text-yellow-800",
-            "High" => "bg-orange-100 text-orange-800",
-            "Critical" => "bg-red-100 text-red-800",
-            _ => "bg-gray-100 text-gray-800"
-        };
-    }
+    
 
     private string GetUserInitials(string fullName)
     {
@@ -453,4 +485,36 @@ else
             
         return $"{(int)(timeSpan.TotalDays / 365)} year{((int)(timeSpan.TotalDays / 365) >= 2 ? "s" : "")} ago";
     }
+    
+    private static string GetStatusBadgeClass(string? status)
+    {
+        if (string.IsNullOrEmpty(status))
+            return "bg-gray-100 text-gray-800";
+            
+        return status.ToLower() switch
+        {
+            "open" => "bg-green-100 text-green-800",
+            "in progress" => "bg-blue-100 text-blue-800",
+            "resolved" => "bg-purple-100 text-purple-800",
+            "closed" => "bg-gray-100 text-gray-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+    
+    private static string GetPriorityBadgeClass(string? priority)
+    {
+        if (string.IsNullOrEmpty(priority))
+            return "bg-gray-100 text-gray-800";
+            
+        return priority.ToLower() switch
+        {
+            "low" => "bg-green-100 text-green-800",
+            "medium" => "bg-yellow-100 text-yellow-800",
+            "high" => "bg-orange-100 text-orange-800",
+            "critical" => "bg-red-100 text-red-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+    
+
 }

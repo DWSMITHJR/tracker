@@ -1,0 +1,213 @@
+@using System.Timers
+@using Tracker.Client.Services
+@using Tracker.Shared.Models
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@using System.Threading.Tasks
+@implements IDisposable
+
+@inject IToastService ToastService
+
+<div class="fixed top-4 right-4 z-50 w-80 space-y-2">
+    @foreach (var toast in _toasts)
+    {
+        <div @key="toast.Id" 
+             class="relative p-4 pr-10 rounded-md shadow-lg @GetToastBackground(toast.Level) text-white transform transition-all duration-300 ease-in-out @(toast.IsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")"
+             @onclick="() => HideToast(toast.Id)">
+            
+            <!-- Close button -->
+            <button class="absolute top-2 right-2 text-white opacity-70 hover:opacity-100 focus:outline-none"
+                    @onclick:stopPropagation="true"
+                    @onclick="() => OnCloseClick(toast.Id)">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            
+            <!-- Title and message -->
+            <h3 class="font-medium text-sm">@toast.Title</h3>
+            <p class="text-sm mt-1">@toast.Message</p>
+            
+            <!-- Progress bar -->
+            @if (toast.ShowProgressBar && toast.AutoClose)
+            {
+                <div class="mt-2 h-1 bg-black bg-opacity-20 rounded-full overflow-hidden">
+                    <div class="h-full bg-white bg-opacity-80 transition-all duration-1000 ease-linear" 
+                         style="width: @(toast.Progress)%">
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private class ToastWithState
+    {
+        // Base toast properties - these match the Toast model but are writable
+        public Guid Id { get; private set; } = Guid.NewGuid();
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public DateTimeOffset Timestamp { get; private set; } = DateTimeOffset.Now;
+        public ToastLevel Level { get; set; } = ToastLevel.Info;
+        public TimeSpan AutoCloseDelay { get; set; } = TimeSpan.FromSeconds(5);
+        public bool AutoClose { get; set; } = true;
+        public bool ShowProgressBar { get; set; } = true;
+        
+        // Additional state properties for UI management
+        public bool IsVisible { get; set; } = true;
+        public double Progress { get; set; } = 100;
+        public System.Timers.Timer? Timer { get; set; }
+        public DateTimeOffset HideAt { get; set; }
+
+        // Create a ToastWithState from a base Toast
+        public static ToastWithState FromToast(Toast toast)
+        {
+            if (toast == null)
+                throw new ArgumentNullException(nameof(toast));
+                
+            return new ToastWithState
+            {
+                Id = toast.Id,
+                Title = toast.Title ?? string.Empty,
+                Message = toast.Message ?? string.Empty,
+                Timestamp = toast.Timestamp,
+                Level = toast.Level,
+                AutoClose = toast.AutoClose,
+                AutoCloseDelay = toast.AutoCloseDelay,
+                ShowProgressBar = toast.ShowProgressBar,
+                HideAt = DateTimeOffset.Now.Add(toast.AutoCloseDelay),
+                IsVisible = true,
+                Progress = 100,
+                Timer = null
+            };
+        }
+    }
+
+    private Action<Toast> _addToastHandler = null!;
+    private readonly List<ToastWithState> _toasts = new();
+    private const int ToastDisplayTime = 5000; // 5 seconds
+
+    protected override void OnInitialized()
+    {
+        _addToastHandler = AddToast;
+        ToastService.OnShow += _addToastHandler;
+        ToastService.OnHide += RemoveToast;
+    }
+
+    private void AddToast(Toast toast)
+    {
+        var toastWithState = ToastWithState.FromToast(toast);
+        _toasts.Add(toastWithState);
+        StateHasChanged();
+
+        if (toastWithState.AutoClose)
+        {
+            toastWithState.Timer = new System.Timers.Timer(50); // Update every 50ms for smooth progress bar
+            toastWithState.Timer.Elapsed += (sender, args) => 
+            {
+                InvokeAsync(() => UpdateProgress(toastWithState));
+            };
+            toastWithState.Timer.Start();
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateProgress(ToastWithState toast)
+    {
+        var elapsed = DateTimeOffset.Now - toast.Timestamp;
+        var progress = (elapsed.TotalMilliseconds / toast.AutoCloseDelay.TotalMilliseconds) * 100;
+        
+        if (progress >= 100)
+        {
+            toast.Timer?.Stop();
+            toast.Timer?.Dispose();
+            toast.IsVisible = false;
+            InvokeAsync(StateHasChanged);
+            
+            // Remove after fade out
+            Task.Delay(300).ContinueWith(_ => 
+            {
+                InvokeAsync(() =>
+                {
+                    _toasts.RemoveAll(t => t.Id == toast.Id);
+                    StateHasChanged();
+                });
+            });
+        }
+        else
+        {
+            toast.Progress = 100 - progress;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void RemoveToast(Guid id)
+    {
+        var toast = _toasts.FirstOrDefault(t => t.Id == id);
+        if (toast != null)
+        {
+            toast.IsVisible = false;
+            StateHasChanged();
+            
+            // Remove after animation completes
+            Task.Delay(300).ContinueWith(_ => 
+            {
+                InvokeAsync(() =>
+                {
+                    _toasts.RemoveAll(t => t.Id == id);
+                    StateHasChanged();
+                });
+            });
+        }
+    }
+
+    private void HideToast(Guid toastId)
+    {
+        var toast = _toasts.FirstOrDefault(t => t.Id == toastId);
+        if (toast != null)
+        {
+            // Remove the toast from the list
+            _toasts.Remove(toast);
+            // Notify the service to hide the toast
+            ToastService.HideToast(toastId);
+            // Update the UI
+            StateHasChanged();
+        }
+    }
+    
+    private void OnCloseClick(Guid toastId)
+    {
+        HideToast(toastId);
+    }
+
+    private string GetToastBackground(ToastLevel level)
+    {
+        return level switch
+        {
+            ToastLevel.Info => "bg-blue-500",
+            ToastLevel.Success => "bg-green-500",
+            ToastLevel.Warning => "bg-yellow-500",
+            ToastLevel.Error => "bg-red-500",
+            _ => "bg-gray-500"
+        };
+    }
+
+    public void Dispose()
+    {
+        if (_addToastHandler != null)
+        {
+            ToastService.OnShow -= _addToastHandler;
+        }
+        ToastService.OnHide -= RemoveToast;
+        
+        foreach (var toast in _toasts)
+        {
+            toast.Timer?.Dispose();
+        }
+        
+        _toasts.Clear();
+    }
+}

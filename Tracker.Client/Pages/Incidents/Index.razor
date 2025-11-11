@@ -1,7 +1,11 @@
 @page "/incidents"
-@using Tracker.Client.Models
 @using Tracker.Client.Services
 @using Tracker.Shared.Auth
+@using Tracker.Shared.Models
+@using Microsoft.AspNetCore.Authorization
+@using System.Diagnostics.CodeAnalysis
+@using System
+@using System.Linq
 @attribute [Authorize]
 @inject IIncidentService IncidentService
 @inject NavigationManager NavigationManager
@@ -16,8 +20,14 @@
                 <h1 class="text-2xl font-bold text-gray-900">Incidents</h1>
                 <button @onclick='() => NavigationManager.NavigateTo("/incidents/new")'
                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                    <svg class="-ml-1 mr-2 h-5 w-5" 
+                         xmlns="http://www.w3.org/2000/svg" 
+                         viewBox="0 0 20 20" 
+                         fill="currentColor" 
+                         aria-hidden="true">
+                        <path fill-rule="evenodd" 
+                              d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" 
+                              clip-rule="evenodd" />
                     </svg>
                     New Incident
                 </button>
@@ -62,31 +72,47 @@
 
             <!-- Incidents Table -->
             <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-                @if (isLoading)
+                @if (!string.IsNullOrEmpty(incidents.Error))
                 {
-                    <div class="flex justify-center items-center p-8">
+                    <div class="bg-red-50 border-l-4 border-red-400 p-4 m-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-red-700">@incidents.Error</p>
+                                <div class="mt-2">
+                                    <button @onclick="ReloadIncidents" class="text-sm font-medium text-red-700 hover:text-red-600">
+                                        Try again <span aria-hidden="true">&rarr;</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (isLoading)
+                {
+                    <div class="flex justify-center items-center py-12">
                         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                     </div>
                 }
-                else if (incidents == null || !incidents.Any())
+                else if (!incidents.Items.Any())
                 {
-                    <div class="bg-white p-8 text-center">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <div class="text-center py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <h3 class="mt-2 text-sm font-medium text-gray-900">No incidents found</h3>
                         <p class="mt-1 text-sm text-gray-500">
-                            @(hasFilters ? "Try adjusting your search or filter criteria" : "Get started by creating a new incident.")
+                            @(hasFilters ? "No incidents match your filters." : "Get started by creating a new incident.")
                         </p>
-                        @if (!hasFilters)
+                        @if (hasFilters)
                         {
                             <div class="mt-6">
-                                <button @onclick='() => NavigationManager.NavigateTo("/incidents/new")'
-                                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
-                                    </svg>
-                                    New Incident
+                                <button @onclick="ClearFilters" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    Clear filters
                                 </button>
                             </div>
                         }
@@ -121,11 +147,15 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach (var incident in incidents)
+                            @foreach (var incident in incidents.Items)
                             {
+                                var incidentId = incident.Id;
+                                var incidentIdStr = incidentId.ToString();
+                                var shortId = incidentId == Guid.Empty ? "" : incidentIdStr.Length > 8 ? incidentIdStr.Substring(0, 8) : incidentIdStr;
+                                
                                 <tr class="hover:bg-gray-50 cursor-pointer" @onclick="() => ViewIncident(incident.Id.ToString())">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        @incident.Id.ToString().Substring(0, 8)
+                                        @shortId
                                     </td>
                                     <td class="px-6 py-4">
                                         <div class="text-sm font-medium text-gray-900">@incident.Title</div>
@@ -163,13 +193,13 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div class="flex justify-end space-x-2">
-                                            <button @onclick:stopPropagation="() => EditIncident(incident.Id)" 
+                                            <button @onclick:stopPropagation @onclick="() => EditIncident(incident.Id.ToString())" 
                                                     class="text-indigo-600 hover:text-indigo-900">
                                                 <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                     <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                                                 </svg>
                                             </button>
-                                            <button @onclick:stopPropagation="() => ShowDeleteConfirmation(incident)" 
+                                            <button @onclick:stopPropagation @onclick="() => ShowDeleteConfirmation(incident)" 
                                                     class="text-red-600 hover:text-red-900">
                                                 <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                     <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
@@ -182,6 +212,8 @@
                         </tbody>
                     </table>
 
+                    } <!-- Close the else block -->
+                    
                     <!-- Pagination -->
                     @if (totalPages > 1)
                     {
@@ -201,8 +233,8 @@
                             <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                 <div>
                                     <p class="text-sm text-gray-700">
-                                        Showing <span class="font-medium">@((currentPage - 1) * pageSize + 1)</span> to 
-                                        <span class="font-medium">@Math.Min(currentPage * pageSize, totalItems)</span> of 
+                                        Showing <span class="font-medium">@((currentPage - 1) * PageSize + 1)</span> to 
+                                        <span class="font-medium">@Math.Min(currentPage * PageSize, totalItems)</span> of 
                                         <span class="font-medium">@totalItems</span> results
                                     </p>
                                 </div>
@@ -271,9 +303,8 @@
             </div>
         </div>
     </div>
-</div>
 
-<!-- Delete Confirmation Modal -->
+    <!-- Delete Confirmation Modal -->
 @if (showDeleteConfirmation)
 {
     <div class="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -312,18 +343,24 @@
 }
 
 @code {
-    private List<Tracker.Shared.Models.IncidentDto> incidents = new();
+    private PagedResult<IncidentDto> incidents = new() 
+    { 
+        Items = new List<IncidentDto>(),
+        PageNumber = 1,
+        PageSize = 10
+    };
     private bool isLoading = true;
-    private string searchQuery = "";
-    private string statusFilter = "";
+    private string searchQuery = string.Empty;
+    private string statusFilter = string.Empty;
+    private const string DefaultStatus = "Open";
     private int currentPage = 1;
-    private int pageSize = 10;
+    private const int PageSize = 10;
     private int totalItems = 0;
     private int totalPages = 0;
     private bool showDeleteConfirmation = false;
-    private Tracker.Shared.Models.IncidentDto incidentToDelete = null;
-    private List<string> availableStatuses = new() { "Open", "In Progress", "Resolved", "Closed" };
-    private bool hasFilters => !string.IsNullOrWhiteSpace(searchQuery) || !string.IsNullOrEmpty(statusFilter);
+    private IncidentDto? incidentToDelete = null;
+    private readonly List<string> availableStatuses = new() { "Open", "In Progress", "Resolved", "Closed" };
+    private bool hasFilters => !string.IsNullOrWhiteSpace(searchQuery) || !string.IsNullOrWhiteSpace(statusFilter);
 
     protected override async Task OnInitializedAsync()
     {
@@ -332,30 +369,172 @@
 
     private async Task LoadIncidents()
     {
+        if (IncidentService == null)
+        {
+            Logger?.LogError("IncidentService is not available");
+            return;
+        }
+
         try
         {
             isLoading = true;
             StateHasChanged();
 
-            var result = await IncidentService.GetIncidentsAsync(currentPage, pageSize, searchQuery, statusFilter);
-            incidents = result.Items.ToList();
-            totalItems = result.TotalCount;
-            totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+            var response = await IncidentService.GetIncidentsAsync(
+                page: currentPage,
+                pageSize: PageSize,
+                searchQuery: string.IsNullOrWhiteSpace(searchQuery) ? null : searchQuery,
+                status: string.IsNullOrWhiteSpace(statusFilter) ? null : statusFilter
+            );
+
+            if (response != null)
+            {
+                incidents = response;
+                totalItems = response.TotalCount;
+                totalPages = response.TotalPages;
+                
+                // Ensure pagination values are set correctly
+                currentPage = response.PageNumber;
+                
+                // If we have items but no total count, try to calculate it
+                if (response.Items != null && response.Items.Any() && response.TotalCount == 0)
+                {
+                    totalItems = response.Items.Count();
+                    totalPages = (int)Math.Ceiling((double)totalItems / PageSize);
+                }
+            }
+            else
+            {
+                incidents = new PagedResult<IncidentDto> 
+                { 
+                    Items = new List<IncidentDto>(),
+                    PageNumber = 1,
+                    PageSize = PageSize,
+                    Error = "Error: No response from server"
+                };
+                totalItems = 0;
+                totalPages = 0;
+            }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading incidents");
-            // In a real app, you would show an error message to the user
+            incidents = new PagedResult<IncidentDto> 
+            { 
+                Items = new List<IncidentDto>(),
+                PageNumber = currentPage,
+                PageSize = PageSize,
+                TotalCount = 0,
+                Error = $"Error loading incidents: {ex.Message}"
+            };
+            totalItems = 0;
+            totalPages = 0;
         }
         finally
         {
             isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ViewIncident(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            Logger?.LogError("Cannot view incident: ID is null or empty");
+            return;
+        }
+
+        if (!Guid.TryParse(id, out var incidentId) || incidentId == Guid.Empty)
+        {
+            Logger?.LogError("Invalid incident ID format: {IncidentId}", id);
+            return;
+        }
+
+        NavigationManager?.NavigateTo($"incidents/{id}");
+    }
+
+    private void EditIncident(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            Logger?.LogError("Cannot edit incident: ID is null or empty");
+            return;
+        }
+
+        if (!Guid.TryParse(id, out var incidentId) || incidentId == Guid.Empty)
+        {
+            Logger?.LogError("Invalid incident ID format: {IncidentId}", id);
+            return;
+        }
+
+        NavigationManager?.NavigateTo($"incidents/{id}/edit");
+    }
+
+    private void ShowDeleteConfirmation(IncidentDto? incident)
+    {
+        if (incident == null)
+        {
+            Logger?.LogWarning("Cannot show delete confirmation: Incident is null");
+            return;
+        }
+
+        incidentToDelete = incident;
+        showDeleteConfirmation = true;
+        StateHasChanged();
+    }
+
+    private async Task DeleteIncident()
+    {
+        if (incidentToDelete?.Id == null || incidentToDelete.Id == Guid.Empty)
+        {
+            showDeleteConfirmation = false;
+            StateHasChanged();
+            return;
+        }
+
+        if (IncidentService == null)
+        {
+            Logger?.LogError("IncidentService is not available");
+            return;
+        }
+
+        try
+        {
+            var result = await IncidentService.DeleteIncidentAsync(incidentToDelete.Id);
+            if (result)
+            {
+                await LoadIncidents();
+            }
+            else
+            {
+                Logger?.LogError("Failed to delete incident {IncidentId}", incidentToDelete.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "Error deleting incident {IncidentId}", incidentToDelete.Id);
+        }
+        finally
+        {
+            showDeleteConfirmation = false;
+            incidentToDelete = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            currentPage = 1;
+            await LoadIncidents();
         }
     }
 
     private async Task FilterIncidents()
     {
-        currentPage = 1; // Reset to first page when filters change
+        currentPage = 1;
         await LoadIncidents();
     }
 
@@ -367,64 +546,29 @@
         await LoadIncidents();
     }
 
-    private void ViewIncident(string id)
+    private async Task GoToPage(int page)
     {
-        NavigationManager.NavigateTo($"/incidents/{id}");
+        currentPage = page;
+        await LoadIncidents();
     }
-
-    private void EditIncident(string id)
+    
+    private async Task ReloadIncidents()
     {
-        NavigationManager.NavigateTo($"/incidents/{id}/edit");
+        await LoadIncidents();
     }
-
-    private void ShowDeleteConfirmation(Tracker.Shared.Models.IncidentDto incident)
+    
+    private async Task ClearFilters()
     {
-        incidentToDelete = incident;
-        showDeleteConfirmation = true;
-    }
-
-    private async Task DeleteIncident()
-    {
-        if (incidentToDelete != null)
-        {
-            try
-            {
-                var success = await IncidentService.DeleteIncidentAsync(incidentToDelete.Id);
-                if (success)
-                {
-                    // Remove from the local list
-                    incidents.Remove(incidentToDelete);
-                    totalItems--;
-                    
-                    // Show success message
-                    // In a real app, you might use a toast notification
-                    Logger.LogInformation($"Incident {incidentToDelete.IncidentNumber} deleted successfully");
-                }
-                else
-                {
-                    Logger.LogError($"Failed to delete incident {incidentToDelete.IncidentNumber}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error deleting incident {IncidentNumber}", incidentToDelete?.IncidentNumber ?? "unknown");
-                // In a real app, you would show an error message to the user
-            }
-            finally
-            {
-                showDeleteConfirmation = false;
-                incidentToDelete = null;
-            }
-        }
+        searchQuery = string.Empty;
+        statusFilter = string.Empty;
+        currentPage = 1;
+        await LoadIncidents();
     }
 
     private async Task FirstPage()
     {
-        if (currentPage > 1)
-        {
-            currentPage = 1;
-            await LoadIncidents();
-        }
+        currentPage = 1;
+        await LoadIncidents();
     }
 
     private async Task PreviousPage()
@@ -447,27 +591,15 @@
 
     private async Task LastPage()
     {
-        if (currentPage < totalPages)
-        {
-            currentPage = totalPages;
-            await LoadIncidents();
-        }
-    }
-
-    private async Task GoToPage(int page)
-    {
-        if (page >= 1 && page <= totalPages && page != currentPage)
-        {
-            currentPage = page;
-            await LoadIncidents();
-        }
+        currentPage = totalPages;
+        await LoadIncidents();
     }
 
     private string GetStatusBadgeClass(string status)
     {
         return status switch
         {
-            "Open" => "bg-red-100 text-red-800",
+            "Open" => "bg-blue-100 text-blue-800",
             "In Progress" => "bg-yellow-100 text-yellow-800",
             "Resolved" => "bg-green-100 text-green-800",
             "Closed" => "bg-gray-100 text-gray-800",
@@ -475,14 +607,14 @@
         };
     }
 
-    private string GetPriorityBadgeClass(string? priority)
+    private string GetPriorityBadgeClass(string priority)
     {
         if (string.IsNullOrEmpty(priority))
             return "bg-gray-100 text-gray-800";
             
         return priority switch
         {
-            "Low" => "bg-green-100 text-green-800",
+            "Low" => "bg-blue-100 text-blue-800",
             "Medium" => "bg-yellow-100 text-yellow-800",
             "High" => "bg-orange-100 text-orange-800",
             "Critical" => "bg-red-100 text-red-800",
@@ -490,26 +622,18 @@
         };
     }
 
-    private string GetUserInitials(string fullName)
+    private static string GetUserInitials(string? fullName)
     {
         if (string.IsNullOrWhiteSpace(fullName))
-            return "??";
+            return string.Empty;
             
         var names = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (names.Length == 0)
-            return "??";
+            return string.Empty;
             
         if (names.Length == 1)
             return names[0][0].ToString().ToUpper();
             
-        return $"{names[0][0]}{names[names.Length - 1][0]}".ToUpper();
-    }
-    
-    private async Task HandleSearchKeyUp(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            await FilterIncidents();
-        }
+        return $"{names[0][0]}{names[^1][0]}".ToUpper();
     }
 }

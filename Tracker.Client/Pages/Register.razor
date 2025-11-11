@@ -97,7 +97,14 @@
 </div>
 
 @code {
-    private RegisterRequest model = new();
+    private RegisterRequest model = new()
+    {
+        FirstName = string.Empty,
+        LastName = string.Empty,
+        Email = string.Empty,
+        Password = string.Empty,
+        ConfirmPassword = string.Empty
+    };
     private string errorMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()

@@ -1,55 +1,31 @@
-<div class="top-row pl-4 navbar navbar-dark">
-    <a class="navbar-brand" href="/">Tracker</a>
-    <button class="navbar-toggler" @onclick="ToggleNavMenu">
-        <span class="navbar-toggler-icon"></span>
-    </button>
-</div>
-
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <ul class="nav flex-column">
-        <li class="nav-item px-3">
-            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
-                <span class="oi oi-home" aria-hidden="true"></span> Home
-            </NavLink>
-        </li>
-        <li class="nav-item px-3">
-            <NavLink class="nav-link" href="/incidents">
-                <span class="oi oi-warning" aria-hidden="true"></span> Incidents
-            </NavLink>
-        </li>
-        <li class="nav-item px-3">
-            <NavLink class="nav-link" href="/individuals">
-                <span class="oi oi-people" aria-hidden="true"></span> Individuals
-            </NavLink>
-        </li>
-        <li class="nav-item px-3">
-            <NavLink class="nav-link" href="/contacts">
-                <span class="oi oi-address-book" aria-hidden="true"></span> Contacts
-            </NavLink>
-        </li>
-        <li class="nav-item px-3">
-            <NavLink class="nav-link" href="/reports">
-                <span class="oi oi-graph" aria-hidden="true"></span> Reports
-            </NavLink>
-        </li>
-        @if (isAdmin || isOperator)
-        {
-            <li class="nav-item px-3">
-                <NavLink class="nav-link" href="/logviewer">
-                    <span class="oi oi-list-rich" aria-hidden="true"></span> Logs
-                </NavLink>
-            </li>
-        }
-        
-        @if (isAdmin)
-        {
-            <li class="nav-item px-3">
-                <NavLink class="nav-link" href="/admin">
-                    <span class="oi oi-cog" aria-hidden="true"></span> Admin
-                </NavLink>
-            </li>
-        }
-    </ul>
+<div class="nav-menu">
+    <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+        <i class="fas fa-home"></i> Home
+    </NavLink>
+    <NavLink class="nav-link" href="/incidents">
+        <i class="fas fa-tasks"></i> Incidents
+    </NavLink>
+    <NavLink class="nav-link" href="/individuals">
+        <i class="fas fa-users"></i> Individuals
+    </NavLink>
+    <NavLink class="nav-link" href="/contacts">
+        <i class="fas fa-address-book"></i> Contacts
+    </NavLink>
+    <NavLink class="nav-link" href="/reports">
+        <i class="fas fa-chart-line"></i> Reports
+    </NavLink>
+    @if (isAdmin || isOperator)
+    {
+        <NavLink class="nav-link" href="/logviewer">
+            <i class="fas fa-file-alt"></i> Logs
+        </NavLink>
+    }
+    @if (isAdmin)
+    {
+        <NavLink class="nav-link" href="/admin">
+            <i class="fas fa-cog"></i> Admin
+        </NavLink>
+    }
 </div>
 
 @using Microsoft.AspNetCore.Components.Authorization
@@ -61,7 +37,7 @@
     
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
 
-    private string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private string NavMenuCssClass => collapseNavMenu ? "collapse" : string.Empty;
 
     private void ToggleNavMenu()
     {
@@ -75,7 +51,7 @@
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var user = authState.User;
             
-            if (user.Identity.IsAuthenticated)
+            if (user.Identity?.IsAuthenticated == true)
             {
                 isAdmin = user.IsInRole("Admin");
                 isOperator = user.IsInRole("Operator") || isAdmin; // Admins can also see operator menus

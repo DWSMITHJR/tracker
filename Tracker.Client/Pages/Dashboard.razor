@@ -17,9 +17,17 @@
                 </h1>
             </div>
             <div class="mt-4 flex md:mt-0 md:ml-4">
-                <button type="button" @onclick="() => NavigationManager.NavigateTo('/incidents/new')" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                <button type="button" 
+                        @onclick="NavigateToNewIncident"
+                        class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="-ml-1 mr-2 h-5 w-5" 
+                         xmlns="http://www.w3.org/2000/svg" 
+                         viewBox="0 0 20 20" 
+                         fill="currentColor" 
+                         aria-hidden="true">
+                        <path fill-rule="evenodd" 
+                              d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" 
+                              clip-rule="evenodd" />
                     </svg>
                     New Incident
                 </button>
@@ -385,8 +393,19 @@
             userName = "John";
             
             // In a real app, you would fetch this data from your API
-            // recentActivities = await SomeService.GetRecentActivitiesAsync();
-            // recentIncidents = await SomeService.GetRecentIncidentsAsync();
+            // Uncomment and implement these when services are available
+            /*
+            var activitiesTask = SomeService.GetRecentActivitiesAsync();
+            var incidentsTask = SomeService.GetRecentIncidentsAsync();
+            
+            await Task.WhenAll(activitiesTask, incidentsTask);
+            
+            recentActivities = await activitiesTask;
+            recentIncidents = await incidentsTask;
+            */
+            
+            // For now, we'll just simulate a small delay to make the async/await meaningful
+            await Task.Delay(1);
         }
         catch (Exception ex)
         {
@@ -419,21 +438,26 @@
         };
     }
     
+    private void NavigateToNewIncident()
+    {
+        NavigationManager.NavigateTo("/incidents/new");
+    }
+    
     private class ActivityItem
     {
-        public string Description { get; set; }
-        public string Type { get; set; }
-        public DateTime Timestamp { get; set; }
-        public string User { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public string User { get; set; } = string.Empty;
     }
     
     private class IncidentItem
     {
-        public string Id { get; set; }
-        public string Title { get; set; }
-        public string Status { get; set; }
-        public string Severity { get; set; }
-        public DateTime ReportedDate { get; set; }
-        public string ReportedBy { get; set; }
+        public string Id { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Status { get; set; } = "Open";
+        public string Severity { get; set; } = "Medium";
+        public DateTime ReportedDate { get; set; } = DateTime.UtcNow;
+        public string ReportedBy { get; set; } = string.Empty;
     }
 }

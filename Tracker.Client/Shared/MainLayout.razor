@@ -3,14 +3,21 @@
 @using Tracker.Shared.Auth
 @using Tracker.Shared.Services
 @using Blazored.Toast
+@using Blazored.Toast.Services
+@using Tracker.Shared.Models
 @inject IAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject ILogger<MainLayout> Logger
-@inject IToastService ToastService
 @inject IAppSettingsService AppSettingsService
+@inject Tracker.Client.Services.IToastService ToastService
 
 <div class="min-h-screen bg-gray-100">
-    <Toast />
+    <BlazoredToasts Position="Blazored.Toast.Configuration.ToastPosition.TopRight"
+                   Timeout="5"
+                   ShowProgressBar="true"
+                   CloseButton="true"
+                   PreventDuplicates="true"
+                   NewestOnTop="true" />
     <div class="bg-indigo-600 pb-32">
         <nav class="bg-indigo-600">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -74,9 +81,9 @@
                                             <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-1">
                                                 Settings
                                             </a>
-                                            <a @onclick="Logout" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer" role="menuitem" tabindex="-1" id="user-menu-item-2">
+                                            <button @onclick="() => AuthService.Logout()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                                                 Sign out
-                                            </a>
+                                            </button>
                                         </div>
                                     }
                                 </div>
@@ -153,9 +160,9 @@
                                 <a href="/settings" class="block px-3 py-2 rounded-md text-base font-medium text-indigo-200 hover:text-white hover:bg-indigo-500">
                                     Settings
                                 </a>
-                                <a @onclick="Logout" class="block px-3 py-2 rounded-md text-base font-medium text-indigo-200 hover:text-white hover:bg-indigo-500 cursor-pointer">
+                                <button @onclick="() => AuthService.Logout()" class="block px-3 py-2 rounded-md text-base font-medium text-indigo-200 hover:text-white hover:bg-indigo-500">
                                     Sign out
-                                </a>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -264,7 +271,7 @@
         try
         {
             await AuthService.Logout();
-            NavigationManager.NavigateTo("/login", true);
+            NavigationManager.NavigateTo("/login");
         }
         catch (Exception ex)
         {

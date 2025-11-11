@@ -28,16 +28,18 @@ namespace Tracker.Client.Services
                 {
                     url += $"&search={Uri.EscapeDataString(searchTerm)}";
                 }
-                return await _httpClient.GetFromJsonAsync<PagedResult<IndividualDto>>(url);
+                
+                var result = await _httpClient.GetFromJsonAsync<PagedResult<IndividualDto>>(url);
+                return result ?? new PagedResult<IndividualDto> { Items = new List<IndividualDto>(), TotalCount = 0 };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching individuals");
-                throw;
+                return new PagedResult<IndividualDto> { Items = new List<IndividualDto>(), TotalCount = 0 };
             }
         }
 
-        public async Task<IndividualDto> GetIndividualByIdAsync(Guid id)
+        public async Task<IndividualDto?> GetIndividualByIdAsync(Guid id)
         {
             try
             {
@@ -45,13 +47,19 @@ namespace Tracker.Client.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error fetching individual with ID {id}");
-                throw;
+                _logger.LogError(ex, "Error fetching individual with ID {IndividualId}", id);
+                return null;
             }
         }
 
-        public async Task<IndividualDto> CreateIndividualAsync(IndividualDto individual)
+        public async Task<IndividualDto?> CreateIndividualAsync(IndividualDto individual)
         {
+            if (individual == null)
+            {
+                _logger.LogError("Cannot create individual: Individual data is null");
+                return null;
+            }
+
             try
             {
                 var response = await _httpClient.PostAsJsonAsync("api/individuals", individual);
@@ -61,7 +69,7 @@ namespace Tracker.Client.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating individual");
-                throw;
+                return null;
             }
         }
 

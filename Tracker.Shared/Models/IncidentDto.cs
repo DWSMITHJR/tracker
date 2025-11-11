@@ -22,6 +22,8 @@ namespace Tracker.Shared.Models
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
+        public Guid? OrganizationId { get; set; }
+        public List<string> Tags { get; set; } = new();
         public List<IncidentIndividualDto> InvolvedIndividuals { get; set; } = new();
     }
 

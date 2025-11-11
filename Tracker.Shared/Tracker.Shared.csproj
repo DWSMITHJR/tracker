@@ -4,15 +4,17 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <LangVersion>11.0</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
   </ItemGroup>
 
+  <!-- Include all .cs files in the project -->
   <ItemGroup>
-    <Compile Include="**/*.cs" Exclude="obj/**;bin/**" />
+    <Compile Include="**/*.cs" Exclude="obj/**;bin/**;$(BaseIntermediateOutputPath)/**;$(BaseOutputPath)/**;@(Compile)" />
   </ItemGroup>
 
 </Project>

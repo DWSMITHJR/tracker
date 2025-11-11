@@ -8,7 +8,7 @@ namespace Tracker.Infrastructure.Models
     {
         [Required]
         [MaxLength(200)]
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
 
         [Required]
         public string? Description { get; set; }
@@ -19,21 +19,21 @@ namespace Tracker.Infrastructure.Models
 
         [Required]
         [MaxLength(20)]
-        public string Severity { get; set; }
+        public string Severity { get; set; } = "Medium";
 
         // Organization relationship
         [Required]
         public Guid OrganizationId { get; set; }
-        public virtual Organization Organization { get; set; }
+        public virtual Organization Organization { get; set; } = null!;
 
         // Reported by relationship
         [Required]
         public Guid ReportedById { get; set; }
-        public virtual Individual ReportedBy { get; set; }
+        public virtual Individual ReportedBy { get; set; } = null!;
 
         // Assigned to relationship
         public Guid? AssignedToId { get; set; }
-        public virtual User AssignedTo { get; set; }
+        public virtual User? AssignedTo { get; set; }
 
         // Navigation properties
         public virtual ICollection<IncidentIndividual> InvolvedIndividuals { get; set; } = new List<IncidentIndividual>();

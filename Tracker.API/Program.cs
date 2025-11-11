@@ -1,70 +1,80 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Tracker.API.Data;
-using Tracker.API.Data.Seeders;
-using Tracker.API.Services;
 using Tracker.Infrastructure.Data;
 using Tracker.Infrastructure.Models;
+using Tracker.API.Services;
 using Tracker.Shared.Auth;
-using Tracker.Shared.Configuration;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-
-// Add CORS
-builder.Services.AddCors(options =>
+// Create the builder and configure it to use specific URLs
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
-        });
+    Args = args,
+    EnvironmentName = Environments.Development,
+    ApplicationName = "Tracker.API",
+    WebRootPath = "wwwroot"
 });
 
-builder.Services.AddSwaggerGen();
+// Explicitly configure Kestrel to use our desired ports
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenLocalhost(5002); // HTTP
+    serverOptions.ListenLocalhost(5003, listenOptions =>
+    {
+        listenOptions.UseHttps(); // HTTPS
+    });
+});
 
-// Add configuration settings
-builder.Services.Configure<AppSettings>(
-    builder.Configuration.GetSection("AppSettings"));
+// Add services to the container.
+builder.Services.AddControllers();
+
+// Options and supporting services
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// Application services
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Add CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
+// Add SQLite DbContext
+builder.Services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+{
+    var logger = serviceProvider.GetRequiredService<ILogger<ApplicationDbContext>>();
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
     
-// Add JWT settings
-builder.Services.Configure<JwtSettings>(
-    builder.Configuration.GetSection("JwtSettings"));
+    // Enable detailed errors and sensitive data logging in development
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging()
+               .EnableDetailedErrors();
+    }
+});
 
-// Register AppSettingsService
-builder.Services.AddScoped<AppSettingsService>();
-
-// Add DbContext
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Add Identity
+// Configure Identity
 builder.Services.AddIdentity<User, IdentityRole<Guid>>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-// Add Authentication
-var appSettings = builder.Configuration.GetSection("AppSettings").Get<AppSettings>();
-if (string.IsNullOrEmpty(appSettings?.Secret))
-{
-    // Use a default secret for development if not configured
-    appSettings ??= new AppSettings();
-    appSettings.Secret = "YOUR_SECRET_KEY_HERE_AT_LEAST_32_CHARACTERS_LONG";
-    builder.Services.Configure<AppSettings>(options => options.Secret = appSettings.Secret);
-}
-
-var key = Encoding.ASCII.GetBytes(appSettings.Secret);
+// Configure JWT Authentication
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings["Secret"] ?? "DefaultSecretKey_ShouldBeLongAndSecure";
+var key = Encoding.ASCII.GetBytes(secretKey);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -79,66 +89,47 @@ builder.Services.AddAuthentication(options =>
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        // Set clock skew to zero so tokens expire exactly at token expiration time
+        ValidateIssuer = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidateAudience = true,
+        ValidAudience = jwtSettings["Audience"],
+        ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
 });
 
-// Authentication is already configured above
-
-// Register DataSeeder and related services
-builder.Services.AddScoped<IDataSeeder, DataSeeder>();
-builder.Services.AddScoped<ICsvDataReader, CsvDataReader>();
-
-// Register AuthService
-builder.Services.AddScoped<IAuthService, AuthService>();
-
-// Configure CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
-        });
-});
-
-// Configure API versioning
-builder.Services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-});
-
-// Register Swagger
+// Add Swagger
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Tracker API", Version = "v1" });
     
-    // Add JWT Authentication
-    var securityScheme = new OpenApiSecurityScheme
+    // Add JWT Authentication to Swagger
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Name = "JWT Authentication",
-        Description = "Enter JWT Bearer token **_only_**",
+        Description = "JWT Authorization header using the Bearer scheme.\r\n\r\nEnter 'Bearer' [space] and then your token in the text input below.\r\n\r\nExample: \"Bearer 12345abcdef\"",
+        Name = "Authorization",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        Reference = new OpenApiReference
-        {
-            Id = JwtBearerDefaults.AuthenticationScheme,
-            Type = ReferenceType.SecurityScheme
-        }
-    };
-    c.AddSecurityDefinition(securityScheme.Reference.Id, securityScheme);
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement()
     {
-        {securityScheme, Array.Empty<string>()}
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                },
+                Scheme = "oauth2",
+                Name = "Bearer",
+                In = ParameterLocation.Header,
+            },
+            new List<string>()
+        }
     });
 });
 
@@ -147,94 +138,126 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    app.UseDeveloperExceptionPage();
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tracker API v1"));
 }
 
 app.UseHttpsRedirection();
-
-// Enable CORS
+app.UseRouting();
 app.UseCors("AllowAll");
-
-// Enable Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Seed initial data
-using (var scope = app.Services.CreateScope())
+app.MapControllers();
+
+// Simple test endpoint
+app.MapGet("/test", () => "API is running!");
+
+// Seed admin user in Development environment
+if (app.Environment.IsDevelopment())
 {
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
-    
+    using var scope = app.Services.CreateScope();
+    await DataSeeder.SeedAdminUserAsync(scope.ServiceProvider);
+}
+
+// Database test endpoint with detailed diagnostics
+app.MapGet("/test-db", async (ApplicationDbContext dbContext, IConfiguration config) =>
+{
     try
     {
-        logger.LogInformation("Initializing database...");
-        var context = services.GetRequiredService<ApplicationDbContext>();
+        var connectionString = config.GetConnectionString("DefaultConnection");
+        var databaseProvider = dbContext.Database.ProviderName;
+        var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+        var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
         
-        // Ensure database is created and apply any pending migrations
-        logger.LogInformation("Ensuring database is created and applying migrations...");
-        await context.Database.EnsureCreatedAsync();
+        // Test database connection with timeout
+        var canConnect = false;
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         
-        // Check if we should seed data (only if the database is empty)
-        if (!await context.Users.AnyAsync())
+        try
         {
-            logger.LogInformation("Database is empty. Seeding initial data...");
-            try
+            canConnect = await dbContext.Database.CanConnectAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return Results.Problem("Database connection timed out after 5 seconds");
+        }
+        
+        // If database doesn't exist, create it and apply migrations
+        if (!canConnect)
+        {
+            try 
             {
-                var seeder = services.GetRequiredService<IDataSeeder>();
-                await seeder.SeedAsync();
-                logger.LogInformation("Database seeding completed successfully.");
+                await dbContext.Database.EnsureCreatedAsync();
+                canConnect = await dbContext.Database.CanConnectAsync();
+                
+                if (canConnect)
+                {
+                    await dbContext.Database.MigrateAsync();
+                }
             }
-            catch (Exception seederEx)
+            catch (Exception ex)
             {
-                logger.LogError(seederEx, "An error occurred while seeding the database. The application will continue without seeded data.");
-                // Continue running the application even if seeding fails
+                return Results.Problem(detail: $"Error initializing database: {ex}", title: "Database Initialization Error");
             }
         }
-        else
+        
+        // Get table counts if possible
+        int? userCount = null;
+        try
         {
-            logger.LogInformation("Database already contains data. Skipping seeding.");
+            userCount = await dbContext.Users.CountAsync();
         }
+        catch (Exception)
+        {
+            // Ignore if we can't get counts
+        }
+        
+        return Results.Ok(new 
+        {
+            status = "Success",
+            database = new 
+            {
+                provider = databaseProvider,
+                connectionString = connectionString,
+                canConnect,
+                pendingMigrations = pendingMigrations.ToArray(),
+                appliedMigrations = appliedMigrations.ToArray()
+            },
+            tables = new 
+            {
+                users = userCount != null ? $"Exists ({userCount} users)" : "Not accessible"
+            },
+            environment = app.Environment.EnvironmentName,
+            timestamp = DateTime.UtcNow
+        });
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "An error occurred while initializing the database");
-        // Re-throw to stop the application if there's a critical database error
-        throw;
+        return Results.Problem(
+            statusCode: 500,
+            title: "Database Error",
+            detail: ex.ToString(),
+            type: "https://tools.ietf.org/html/rfc7231#section-6.6.1"
+        );
     }
-}
+});
 
-var summaries = new[]
+// Health check endpoint
+app.MapGet("/health", async (ApplicationDbContext dbContext) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/api/appsettings", async (AppSettingsService appSettingsService) =>
-{
-    var settings = await appSettingsService.GetAppSettingsAsync();
-    return Results.Ok(settings);
-})
-.WithName("GetAppSettings")
-.Produces<AppSettings>(StatusCodes.Status200OK);
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+    try
+    {
+        var canConnect = await dbContext.Database.CanConnectAsync();
+        return canConnect 
+            ? Results.Ok(new { status = "Healthy", timestamp = DateTime.UtcNow })
+            : Results.Problem("Cannot connect to database", statusCode: 503);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem("Health check failed: " + ex.Message, statusCode: 503);
+    }
+});
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
